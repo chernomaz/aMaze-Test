@@ -135,6 +135,21 @@ def _extract_tool_args(input_arg):
     return input_arg
 
 
+def _args_to_assertion_text(args_data) -> str:
+    """Convert tool args to a user-friendly string for assertions.
+
+    For single-argument tools (e.g. {'query': '...'}) extract the value so
+    that assertions like starts_with('Scenarios') or equals('data governance
+    frameworks') work against the plain argument value rather than the full
+    dict repr  "{'query': '...'}".
+    """
+    if isinstance(args_data, dict) and len(args_data) == 1:
+        val = next(iter(args_data.values()))
+        if isinstance(val, str):
+            return val
+    return str(args_data)
+
+
 def _wrap_tool_mock_output(raw_output, input_arg, tool_name: str):
     """Return mock output in the format the caller expects.
 
@@ -177,11 +192,11 @@ def _extract_usage_from_result(result):
 def _build_indirect_hint(runtime) -> str:
     """Build a context hint string for indirect LLM calls when a mock redirected the tool.
 
-    When the LLM mock replaced the user query with a different tool call (e.g. changed
-    "bitcoin price today" to pdf_search("Scenarios in humanitarian data management")),
-    the real LLM on the indirect call sees the original user query and may try to call
-    additional tools to satisfy it. Injecting the tool description and mock query tells
-    the LLM what actually happened so it can return a final answer instead.
+    When the LLM mock replaced the user query with a different tool call, the real LLM
+    on the indirect call sees the tool results and must decide what to do next.
+
+    - If the graph still expects more tools, hint the LLM to call the next required tool.
+    - If no more tools are expected (or in control-plane mode), tell the LLM to finalise.
     """
     mock = runtime.last_llm_mock
     if not mock or not mock.return_tool_call:
@@ -198,7 +213,20 @@ def _build_indirect_hint(runtime) -> str:
         parts.append(f"Tool used: {tool_name}")
     if query:
         parts.append(f"Query sent to tool: \"{query}\"")
-    parts.append("The tool results are above. Provide a final answer based on them. Do not call any additional tools.")
+    parts.append("The tool results are above.")
+
+    # Check whether the graph expects more tools after the current node
+    from amaze.policy import GraphPolicy
+    if isinstance(runtime.policy, GraphPolicy):
+        successors = runtime._adjacency.get(runtime.current_node, [])
+        next_tools = [s.split("tool:", 1)[1] for s in successors if s.startswith("tool:")]
+        if next_tools:
+            parts.append(f"Now call the `{next_tools[0]}` tool to continue.")
+        else:
+            parts.append("Provide a final answer based on them. Do not call any additional tools.")
+    else:
+        parts.append("Provide a final answer based on them. Do not call any additional tools.")
+
     return " ".join(parts)
 
 
@@ -253,6 +281,10 @@ def _patch_llm(runtime):
 
         input_text = _input_to_text(input_arg)
 
+        # Capture the agent prompt from the very first direct LLM call
+        if not indirect and not runtime.agent_prompt:
+            runtime.agent_prompt = input_text
+
         # Assertions only for direct calls
         if not indirect:
             runtime.run_assertions("llm", "input", input_text)
@@ -264,7 +296,10 @@ def _patch_llm(runtime):
                 runtime.last_llm_mock = mock  # remember for indirect hint injection
                 result = _build_llm_mock_response(mock)
                 runtime.run_assertions("llm", "output", result.content)
-                if not getattr(result, "tool_calls", None):
+                has_tc = bool(getattr(result, "tool_calls", None))
+                output_text = str(result.tool_calls) if has_tc else result.content
+                runtime.record_llm_output(input_text, output_text, indirect, has_tc)
+                if not has_tc:
                     runtime.advance_finish_if_complete()
                 return result
 
@@ -288,10 +323,14 @@ def _patch_llm(runtime):
         if not indirect:
             runtime.run_assertions("llm", "output", result.content)
 
+        has_tc = bool(getattr(result, "tool_calls", None))
+        output_text = str(result.tool_calls) if has_tc else result.content
+        runtime.record_llm_output(input_text, output_text, indirect, has_tc)
+
         # If the LLM returned a final answer (no tool_calls), the agent turn is done.
         # advance_finish_if_complete records 'finish' and resets for the next turn.
         # This also fires for unit tests where no Pregel chain wraps the calls.
-        if not getattr(result, "tool_calls", None):
+        if not has_tc:
             runtime.advance_finish_if_complete()
 
         return result
@@ -305,6 +344,10 @@ def _patch_llm(runtime):
 
         input_text = _input_to_text(input_arg)
 
+        # Capture the agent prompt from the very first direct LLM call
+        if not indirect and not runtime.agent_prompt:
+            runtime.agent_prompt = input_text
+
         if not indirect:
             runtime.run_assertions("llm", "input", input_text)
 
@@ -315,7 +358,10 @@ def _patch_llm(runtime):
                 runtime.last_llm_mock = mock  # remember for indirect hint injection
                 result = _build_llm_mock_response(mock)
                 runtime.run_assertions("llm", "output", result.content)
-                if not getattr(result, "tool_calls", None):
+                has_tc = bool(getattr(result, "tool_calls", None))
+                output_text = str(result.tool_calls) if has_tc else result.content
+                runtime.record_llm_output(input_text, output_text, indirect, has_tc)
+                if not has_tc:
                     runtime.advance_finish_if_complete()
                 return result
 
@@ -339,7 +385,11 @@ def _patch_llm(runtime):
         if not indirect:
             runtime.run_assertions("llm", "output", result.content)
 
-        if not getattr(result, "tool_calls", None):
+        has_tc = bool(getattr(result, "tool_calls", None))
+        output_text = str(result.tool_calls) if has_tc else result.content
+        runtime.record_llm_output(input_text, output_text, indirect, has_tc)
+
+        if not has_tc:
             runtime.advance_finish_if_complete()
 
         return result
@@ -361,7 +411,7 @@ def _patch_tools(runtime):
         tool_name = self.name
         target = f"tool:{tool_name}"
         args_data = _extract_tool_args(input_arg)
-        input_text = str(args_data)
+        input_text = _args_to_assertion_text(args_data)
 
         runtime.last_tool_description = getattr(self, "description", "")
         runtime.run_assertions(target, "input", input_text)
@@ -371,10 +421,12 @@ def _patch_tools(runtime):
         if mock is not None:
             content = str(mock.output) if mock.output is not None else ""
             runtime.run_assertions(target, "output", content)
+            runtime.record_tool_output(tool_name, input_text, content)
             return _wrap_tool_mock_output(mock.output, input_arg, tool_name)
 
         result = orig_invoke(self, input_arg, *args, **kwargs)
         runtime.run_assertions(target, "output", result)
+        runtime.record_tool_output(tool_name, input_text, str(result))
         return result
 
     @functools.wraps(orig_ainvoke)
@@ -382,7 +434,7 @@ def _patch_tools(runtime):
         tool_name = self.name
         target = f"tool:{tool_name}"
         args_data = _extract_tool_args(input_arg)
-        input_text = str(args_data)
+        input_text = _args_to_assertion_text(args_data)
 
         runtime.last_tool_description = getattr(self, "description", "")
         runtime.run_assertions(target, "input", input_text)
@@ -392,10 +444,12 @@ def _patch_tools(runtime):
         if mock is not None:
             content = str(mock.output) if mock.output is not None else ""
             runtime.run_assertions(target, "output", content)
+            runtime.record_tool_output(tool_name, input_text, content)
             return _wrap_tool_mock_output(mock.output, input_arg, tool_name)
 
         result = await orig_ainvoke(self, input_arg, *args, **kwargs)
         runtime.run_assertions(target, "output", result)
+        runtime.record_tool_output(tool_name, input_text, str(result))
         return result
 
     BaseTool.invoke = patched_invoke

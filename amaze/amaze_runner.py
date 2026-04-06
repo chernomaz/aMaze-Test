@@ -59,18 +59,40 @@ def main():
 
 
 def _print_report(runtime, failures, script_error):
+    # Aggregate totals across all completed turns plus any uncommitted state
+    all_turns = runtime.turns
+    total_llm = sum(t["llm_calls"] for t in all_turns) + runtime.llm_calls
+    total_indirect = sum(t["indirect_llm_calls"] for t in all_turns) + runtime.indirect_llm_calls
+    total_tool = sum(t["tool_calls"] for t in all_turns) + runtime.tool_calls
+    total_tokens = sum(t["total_tokens"] for t in all_turns) + runtime.total_tokens
+    tool_by_name: dict = {}
+    for t in all_turns:
+        for k, v in t["tool_calls_by_name"].items():
+            tool_by_name[k] = tool_by_name.get(k, 0) + v
+    for k, v in runtime.tool_calls_by_name.items():
+        tool_by_name[k] = tool_by_name.get(k, 0) + v
+
     sep = "=" * 60
     print(f"\n{sep}")
     print(f"aMazeTest Run Report  [trace: {runtime.trace_id[:8]}]")
     print(sep)
-    print(f"LLM calls (direct):   {runtime.llm_calls}")
-    print(f"LLM calls (indirect): {runtime.indirect_llm_calls}")
-    print(f"Tool calls:           {runtime.tool_calls}")
-    if runtime.tool_calls_by_name:
-        for name, count in runtime.tool_calls_by_name.items():
+    print(f"LLM calls (direct):   {total_llm}")
+    print(f"LLM calls (indirect): {total_indirect}")
+    print(f"Tool calls:           {total_tool}")
+    if tool_by_name:
+        for name, count in tool_by_name.items():
             print(f"  {name}: {count}")
-    print(f"Total tokens:         {runtime.total_tokens}")
+    print(f"Total tokens:         {total_tokens}")
     print(f"Call sequence:        {runtime.call_sequence}")
+    if runtime.turns:
+        print(f"\nPer-turn breakdown ({len(runtime.turns)} turn(s)):")
+        for t in runtime.turns:
+            tools = t["tool_calls_by_name"]
+            tool_str = ", ".join(f"{k}:{v}" for k, v in tools.items()) if tools else "-"
+            print(
+                f"  Turn {t['turn']}: llm={t['llm_calls']} tool={t['tool_calls']} "
+                f"({tool_str}) tokens={t['total_tokens']} seq={t['call_sequence']}"
+            )
     if failures:
         print(f"\nFAILED ({len(failures)} issue(s)):")
         for f in failures:
