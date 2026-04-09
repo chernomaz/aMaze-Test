@@ -1,0 +1,2079 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>aMazeTest GUI</title>
+  <style>
+    :root {
+      --bg: #0b1020; --panel: #121a2b; --panel-2: #18233a;
+      --text: #e8eefc; --muted: #9fb0d1; --line: #2b3a59;
+      --green: #1fbf75; --yellow: #f2b94b; --red: #e05252;
+      --blue: #5da9ff; --violet: #a97cff; --cyan: #43d1c6;
+      --sidebar-w: 220px;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: Inter, 'Segoe UI', Arial, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      display: flex;
+    }
+    /* ── Sidebar ── */
+    #sidebar {
+      width: var(--sidebar-w);
+      min-width: var(--sidebar-w);
+      background: var(--panel);
+      border-right: 1px solid var(--line);
+      display: flex;
+      flex-direction: column;
+      position: fixed;
+      top: 0; left: 0; bottom: 0;
+      z-index: 100;
+      overflow-y: auto;
+    }
+    .sidebar-logo {
+      padding: 20px 18px 14px;
+      font-size: 18px;
+      font-weight: 800;
+      letter-spacing: 0.1px;
+      color: var(--blue);
+      border-bottom: 1px solid var(--line);
+    }
+    .sidebar-logo span { color: var(--violet); }
+    .sidebar-section {
+      padding: 14px 10px 2px;
+      font-size: 10px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.1em;
+      color: var(--muted);
+    }
+    .nav-item {
+      display: flex;
+      align-items: center;
+      gap: 9px;
+      padding: 8px 14px;
+      border-radius: 8px;
+      margin: 1px 6px;
+      cursor: pointer;
+      font-size: 13px;
+      color: var(--muted);
+      text-decoration: none;
+      transition: background 0.15s, color 0.15s;
+    }
+    .nav-item:hover { background: var(--panel-2); color: var(--text); }
+    .nav-item.active { background: rgba(93,169,255,0.13); color: var(--blue); font-weight: 600; }
+    .nav-icon { font-size: 15px; width: 18px; text-align: center; }
+
+    /* ── Main layout ── */
+    #main {
+      margin-left: var(--sidebar-w);
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      min-height: 100vh;
+    }
+    #topbar {
+      background: var(--panel);
+      border-bottom: 1px solid var(--line);
+      padding: 0 24px;
+      height: 52px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      position: sticky;
+      top: 0;
+      z-index: 50;
+    }
+    #topbar-title { font-size: 15px; font-weight: 700; color: var(--text); }
+    #topbar-sub { font-size: 12px; color: var(--muted); margin-top: 2px; }
+    #view-area { padding: 24px; flex: 1; }
+
+    /* ── Cards / Panels ── */
+    .card {
+      background: linear-gradient(180deg, var(--panel) 0%, #0f1627 100%);
+      border: 1px solid var(--line);
+      border-radius: 14px;
+      padding: 18px 20px;
+    }
+    .card h3 {
+      margin: 0 0 14px;
+      font-size: 11px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.1em;
+      color: var(--muted);
+    }
+    .stats-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(130px, 1fr));
+      gap: 14px;
+      margin-bottom: 20px;
+    }
+    .stat-card {
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      padding: 16px;
+      text-align: center;
+    }
+    .stat-card .stat-val {
+      font-size: 32px;
+      font-weight: 800;
+      line-height: 1;
+      margin-bottom: 6px;
+    }
+    .stat-card .stat-label { font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.08em; }
+    .c-green { color: var(--green); }
+    .c-red { color: var(--red); }
+    .c-blue { color: var(--blue); }
+    .c-yellow { color: var(--yellow); }
+    .c-cyan { color: var(--cyan); }
+    .c-muted { color: var(--muted); }
+    .c-violet { color: var(--violet); }
+
+    /* ── Table ── */
+    table { width: 100%; border-collapse: collapse; font-size: 13px; }
+    th, td {
+      border-bottom: 1px solid var(--line);
+      padding: 10px 10px;
+      text-align: left;
+      vertical-align: middle;
+    }
+    th { font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.07em; font-weight: 600; }
+    tr:hover td { background: rgba(255,255,255,0.02); }
+    td .actions { display: flex; gap: 6px; }
+
+    /* ── Badges ── */
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      padding: 3px 9px;
+      border-radius: 999px;
+      font-size: 11px;
+      font-weight: 700;
+      white-space: nowrap;
+    }
+    .badge-pass { background: rgba(31,191,117,0.15); color: var(--green); }
+    .badge-fail { background: rgba(224,82,82,0.15); color: var(--red); }
+    .badge-xfail { background: rgba(67,209,198,0.15); color: var(--cyan); }
+    .badge-xpass { background: rgba(242,185,75,0.15); color: var(--yellow); }
+    .badge-pending { background: rgba(93,169,255,0.15); color: var(--blue); }
+    .badge-running { background: rgba(159,176,209,0.12); color: var(--muted); }
+    .badge-none { background: rgba(159,176,209,0.08); color: var(--muted); }
+
+    /* ── Buttons ── */
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 7px 14px;
+      border-radius: 8px;
+      font-size: 13px;
+      font-weight: 600;
+      cursor: pointer;
+      border: none;
+      transition: opacity 0.15s, background 0.15s;
+    }
+    .btn:disabled { opacity: 0.45; cursor: not-allowed; }
+    .btn-primary { background: var(--blue); color: #06101e; }
+    .btn-primary:hover:not(:disabled) { opacity: 0.85; }
+    .btn-success { background: var(--green); color: #03140a; }
+    .btn-success:hover:not(:disabled) { opacity: 0.85; }
+    .btn-danger { background: rgba(224,82,82,0.15); color: var(--red); border: 1px solid rgba(224,82,82,0.3); }
+    .btn-danger:hover:not(:disabled) { background: rgba(224,82,82,0.25); }
+    .btn-ghost { background: var(--panel-2); color: var(--muted); border: 1px solid var(--line); }
+    .btn-ghost:hover:not(:disabled) { color: var(--text); }
+    .btn-sm { padding: 4px 10px; font-size: 12px; border-radius: 6px; }
+
+    /* ── Forms ── */
+    .form-group { margin-bottom: 14px; }
+    .form-group label { display: block; font-size: 12px; color: var(--muted); margin-bottom: 5px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.06em; }
+    .form-control {
+      width: 100%;
+      background: var(--panel-2);
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      color: var(--text);
+      padding: 8px 12px;
+      font-size: 13px;
+      font-family: inherit;
+      outline: none;
+      transition: border-color 0.15s;
+    }
+    .form-control:focus { border-color: var(--blue); }
+    textarea.form-control { resize: vertical; min-height: 80px; }
+    select.form-control option { background: var(--panel-2); }
+    .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+    .radio-group { display: flex; gap: 12px; flex-wrap: wrap; }
+    .radio-label {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      cursor: pointer;
+      font-size: 13px;
+      color: var(--muted);
+      padding: 6px 12px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      transition: border-color 0.15s, color 0.15s;
+    }
+    .radio-label:has(input:checked) { border-color: var(--blue); color: var(--blue); }
+    .radio-label input { accent-color: var(--blue); }
+
+    /* ── Tabs ── */
+    .tabs { display: flex; gap: 0; border-bottom: 1px solid var(--line); margin-bottom: 16px; }
+    .tab {
+      padding: 8px 16px;
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--muted);
+      cursor: pointer;
+      border-bottom: 2px solid transparent;
+      margin-bottom: -1px;
+      transition: color 0.15s, border-color 0.15s;
+    }
+    .tab.active { color: var(--blue); border-bottom-color: var(--blue); }
+    .tab-panel { display: none; }
+    .tab-panel.active { display: block; }
+
+    /* ── Toast ── */
+    #toast-container {
+      position: fixed;
+      bottom: 20px;
+      right: 20px;
+      z-index: 9999;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+    .toast {
+      padding: 12px 18px;
+      border-radius: 10px;
+      font-size: 13px;
+      font-weight: 600;
+      animation: slideIn 0.25s ease;
+      max-width: 320px;
+    }
+    .toast-success { background: rgba(31,191,117,0.15); border: 1px solid rgba(31,191,117,0.3); color: var(--green); }
+    .toast-error { background: rgba(224,82,82,0.15); border: 1px solid rgba(224,82,82,0.3); color: var(--red); }
+    .toast-info { background: rgba(93,169,255,0.15); border: 1px solid rgba(93,169,255,0.3); color: var(--blue); }
+    @keyframes slideIn { from { transform: translateX(60px); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
+
+    /* ── Log area ── */
+    .log-area {
+      background: #07101d;
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      padding: 12px;
+      font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+      font-size: 12px;
+      line-height: 1.6;
+      color: #a8c0e8;
+      min-height: 200px;
+      max-height: 500px;
+      overflow-y: auto;
+      white-space: pre-wrap;
+      word-break: break-all;
+    }
+    .log-line-ok { color: #8ef1e6; }
+    .log-line-err { color: #ffb3b3; }
+    .log-line-info { color: #a8c0e8; }
+
+    /* ── Two-column layout ── */
+    .two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+    .three-col { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 20px; }
+
+    /* ── Section header ── */
+    .section-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 16px;
+    }
+    .section-header h2 { font-size: 18px; font-weight: 700; }
+
+    /* ── Inline code ── */
+    code {
+      font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+      background: var(--panel-2);
+      border: 1px solid var(--line);
+      border-radius: 5px;
+      padding: 2px 6px;
+      font-size: 12px;
+      color: #c4d5ff;
+    }
+
+    /* ── List items ── */
+    .item-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 10px 14px;
+      border-bottom: 1px solid var(--line);
+      gap: 10px;
+    }
+    .item-row:last-child { border-bottom: none; }
+    .item-row:hover { background: rgba(255,255,255,0.02); }
+
+    /* ── Status dot ── */
+    .dot {
+      width: 9px; height: 9px; border-radius: 50%; display: inline-block; flex-shrink: 0;
+    }
+    .dot-green { background: var(--green); box-shadow: 0 0 5px var(--green); }
+    .dot-red { background: var(--red); }
+    .dot-muted { background: var(--muted); }
+
+    /* ── Assertion / Mock builders ── */
+    .assert-row, .mock-row {
+      display: flex;
+      gap: 8px;
+      align-items: flex-start;
+      padding: 8px;
+      background: var(--panel-2);
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      margin-bottom: 8px;
+    }
+    .assert-row select, .mock-row select { flex: 1; }
+    .assert-row input, .mock-row input { flex: 1; }
+    .assert-row .btn-sm, .mock-row .btn-sm { flex-shrink: 0; }
+
+    /* ── XFAIL banner ── */
+    .xfail-banner {
+      background: rgba(67,209,198,0.08);
+      border: 1px solid rgba(67,209,198,0.25);
+      border-radius: 8px;
+      padding: 10px 14px;
+      color: var(--cyan);
+      font-size: 13px;
+      margin-top: 10px;
+      display: none;
+    }
+
+    /* ── Canvas chart ── */
+    .chart-canvas { width: 100%; height: 180px; display: block; }
+
+    /* ── Suite test list ── */
+    .test-check-item {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 7px 10px;
+      border-radius: 7px;
+      cursor: pointer;
+    }
+    .test-check-item:hover { background: var(--panel-2); }
+    .test-check-item input[type=checkbox] { accent-color: var(--blue); width: 15px; height: 15px; }
+
+    /* ── Suite run per-test row ── */
+    .suite-test-row {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 8px 12px;
+      border-bottom: 1px solid var(--line);
+      font-size: 13px;
+    }
+    .suite-test-row .name { flex: 1; }
+    .suite-test-row .log-toggle { cursor: pointer; color: var(--blue); font-size: 12px; text-decoration: underline; }
+
+    /* ── Compare table ── */
+    .compare-regression td { background: rgba(224,82,82,0.07); }
+    .compare-fixed td { background: rgba(31,191,117,0.07); }
+
+    /* ── Scrollbar ── */
+    ::-webkit-scrollbar { width: 6px; height: 6px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: var(--line); border-radius: 3px; }
+    ::-webkit-scrollbar-thumb:hover { background: #3d5070; }
+
+    /* ── Collapsible ── */
+    .collapsible-body { display: none; }
+    .collapsible-body.open { display: block; }
+
+    /* ── Policy JSON preview ── */
+    .policy-preview {
+      background: #07101d;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      padding: 12px;
+      font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+      font-size: 12px;
+      color: #a8c0e8;
+      white-space: pre;
+      overflow: auto;
+      max-height: 300px;
+    }
+
+    /* ── Empty state ── */
+    .empty-state {
+      text-align: center;
+      padding: 40px;
+      color: var(--muted);
+      font-size: 13px;
+    }
+    .empty-state .icon { font-size: 32px; margin-bottom: 10px; }
+
+    /* ── MCP tool list ── */
+    .tool-list { margin-top: 10px; }
+    .tool-item {
+      padding: 6px 10px;
+      background: var(--panel-2);
+      border-radius: 6px;
+      margin-bottom: 5px;
+      font-size: 12px;
+    }
+    .tool-item .tool-name { font-weight: 600; color: var(--blue); }
+    .tool-item .tool-desc { color: var(--muted); margin-top: 2px; }
+
+    @media (max-width: 900px) {
+      .two-col, .three-col { grid-template-columns: 1fr; }
+      .form-row { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+
+<!-- Sidebar -->
+<nav id="sidebar">
+  <div class="sidebar-logo">aMaze<span>Test</span></div>
+
+  <div class="sidebar-section">Testing</div>
+  <a class="nav-item" href="#dashboard"><span class="nav-icon">⬛</span> Dashboard</a>
+  <a class="nav-item" href="#run-test"><span class="nav-icon">▶</span> Run Test</a>
+
+  <div class="sidebar-section">Configuration</div>
+  <a class="nav-item" href="#policies"><span class="nav-icon">🛡</span> Policies</a>
+  <a class="nav-item" href="#policy-editor"><span class="nav-icon">✏</span> Policy Editor</a>
+  <a class="nav-item" href="#test-cases"><span class="nav-icon">🧪</span> Test Cases</a>
+  <a class="nav-item" href="#mcp-servers"><span class="nav-icon">🔌</span> MCP Servers</a>
+  <a class="nav-item" href="#agents"><span class="nav-icon">🤖</span> Agents</a>
+
+  <div class="sidebar-section">Suites</div>
+  <a class="nav-item" href="#suites"><span class="nav-icon">📦</span> Test Suites</a>
+  <a class="nav-item" href="#run-suite"><span class="nav-icon">▶▶</span> Run Suite</a>
+  <a class="nav-item" href="#history"><span class="nav-icon">📈</span> History</a>
+  <a class="nav-item" href="#compare"><span class="nav-icon">⇄</span> Compare Runs</a>
+</nav>
+
+<!-- Main -->
+<div id="main">
+  <div id="topbar">
+    <div>
+      <div id="topbar-title">Dashboard</div>
+      <div id="topbar-sub">aMazeTest behavioral testing framework</div>
+    </div>
+    <div style="display:flex;gap:8px;align-items:center;">
+      <span id="conn-status" class="badge badge-pending">connecting...</span>
+    </div>
+  </div>
+  <div id="view-area"></div>
+</div>
+
+<!-- Toast container -->
+<div id="toast-container"></div>
+
+<script>
+'use strict';
+
+// ────────────────────────────────────────────────────────────
+// UTILITIES
+// ────────────────────────────────────────────────────────────
+
+function toast(msg, type = 'info') {
+  const el = document.createElement('div');
+  el.className = `toast toast-${type}`;
+  el.textContent = msg;
+  document.getElementById('toast-container').appendChild(el);
+  setTimeout(() => el.remove(), 3500);
+}
+
+function badge(outcome) {
+  if (!outcome) return '<span class="badge badge-none">—</span>';
+  const map = {
+    pass:    ['badge-pass',    'PASS'],
+    fail:    ['badge-fail',    'FAIL'],
+    xfail:   ['badge-xfail',   'XFAIL ✓'],
+    xpass:   ['badge-xpass',   'XPASS ✗'],
+    pending: ['badge-pending', 'PENDING'],
+    running: ['badge-running', 'running...'],
+  };
+  const [cls, label] = map[outcome.toLowerCase()] || ['badge-none', outcome];
+  return `<span class="badge ${cls}">${label}</span>`;
+}
+
+function esc(s) {
+  if (s == null) return '';
+  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+async function api(path, opts = {}) {
+  const res = await fetch('/api' + path, {
+    headers: { 'Content-Type': 'application/json', ...opts.headers },
+    ...opts,
+    body: opts.body ? JSON.stringify(opts.body) : undefined,
+  });
+  if (!res.ok) {
+    let msg = res.statusText;
+    try { const j = await res.json(); msg = j.detail || j.message || msg; } catch {}
+    throw new Error(msg);
+  }
+  if (res.status === 204) return null;
+  return res.json();
+}
+
+function fmtDate(s) {
+  if (!s) return '—';
+  try { return new Date(s).toLocaleString(); } catch { return s; }
+}
+
+function el(tag, attrs = {}, ...children) {
+  const e = document.createElement(tag);
+  for (const [k, v] of Object.entries(attrs)) {
+    if (k === 'class') e.className = v;
+    else if (k.startsWith('on')) e[k] = v;
+    else e.setAttribute(k, v);
+  }
+  for (const c of children) {
+    if (c == null) continue;
+    e.appendChild(typeof c === 'string' ? document.createTextNode(c) : c);
+  }
+  return e;
+}
+
+// ────────────────────────────────────────────────────────────
+// ROUTER
+// ────────────────────────────────────────────────────────────
+
+const ROUTES = {};
+let currentView = null;
+
+function register(hash, titleFn, renderFn) {
+  ROUTES[hash] = { titleFn, renderFn };
+}
+
+function navigate(hash) {
+  if (!hash || hash === '#') hash = '#dashboard';
+  // Update nav
+  document.querySelectorAll('.nav-item').forEach(a => {
+    a.classList.toggle('active', a.getAttribute('href') === hash);
+  });
+  const route = ROUTES[hash] || ROUTES['#dashboard'];
+  const title = route.titleFn();
+  document.getElementById('topbar-title').textContent = title[0];
+  document.getElementById('topbar-sub').textContent = title[1] || 'aMazeTest behavioral testing framework';
+  const area = document.getElementById('view-area');
+  area.innerHTML = '';
+  currentView = hash;
+  route.renderFn(area);
+}
+
+window.addEventListener('hashchange', () => navigate(location.hash));
+window.addEventListener('load', () => {
+  checkServer();
+  navigate(location.hash || '#dashboard');
+});
+
+async function checkServer() {
+  const el = document.getElementById('conn-status');
+  try {
+    await api('/agents');
+    el.className = 'badge badge-pass';
+    el.textContent = 'connected';
+  } catch {
+    el.className = 'badge badge-fail';
+    el.textContent = 'offline';
+  }
+}
+
+// ────────────────────────────────────────────────────────────
+// TABS HELPER
+// ────────────────────────────────────────────────────────────
+
+function makeTabs(container, tabs) {
+  const tabBar = el('div', { class: 'tabs' });
+  const panels = {};
+  tabs.forEach(({ id, label, content }, i) => {
+    const t = el('div', { class: 'tab' + (i === 0 ? ' active' : ''), onclick() {
+      tabBar.querySelectorAll('.tab').forEach(x => x.classList.remove('active'));
+      t.classList.add('active');
+      Object.values(panels).forEach(p => p.classList.remove('active'));
+      panels[id].classList.add('active');
+    }}, label);
+    tabBar.appendChild(t);
+    const p = el('div', { class: 'tab-panel' + (i === 0 ? ' active' : '') });
+    if (typeof content === 'string') p.innerHTML = content;
+    else if (content instanceof Node) p.appendChild(content);
+    else if (typeof content === 'function') content(p);
+    panels[id] = p;
+  });
+  container.appendChild(tabBar);
+  Object.values(panels).forEach(p => container.appendChild(p));
+  return panels;
+}
+
+// ────────────────────────────────────────────────────────────
+// DASHBOARD
+// ────────────────────────────────────────────────────────────
+
+register('#dashboard',
+  () => ['Dashboard', 'Overview of your testing environment'],
+  async (area) => {
+    area.innerHTML = '<div class="empty-state"><div class="icon">⏳</div>Loading...</div>';
+    try {
+      const [agents, policies, testCases, suites] = await Promise.all([
+        api('/agents').catch(() => []),
+        api('/policies').catch(() => []),
+        api('/test-cases').catch(() => []),
+        api('/suites').catch(() => []),
+      ]);
+
+      // Stats
+      const stats = el('div', { class: 'stats-grid' });
+      const statItems = [
+        { label: 'Agents', val: agents.length, cls: 'c-blue' },
+        { label: 'Policies', val: policies.length, cls: 'c-violet' },
+        { label: 'Test Cases', val: testCases.length, cls: 'c-cyan' },
+        { label: 'Suites', val: suites.length, cls: 'c-yellow' },
+      ];
+      for (const s of statItems) {
+        stats.innerHTML += `<div class="stat-card"><div class="stat-val ${s.cls}">${s.val}</div><div class="stat-label">${s.label}</div></div>`;
+      }
+
+      area.innerHTML = '';
+      area.appendChild(stats);
+
+      // Recent runs table
+      const tableCard = el('div', { class: 'card' });
+      tableCard.innerHTML = '<h3>Recent Test Runs</h3>';
+
+      // Try to get recent runs — we iterate test cases and fetch runs
+      // We'll try a general approach: load history for known suites and recent standalone runs
+      // Since there's no "list all test runs" endpoint, we'll pull run data from test cases
+      let runs = [];
+      for (const tc of testCases.slice(0, 10)) {
+        // There's no direct "list runs for test case" endpoint; skip
+        // We'll show a hint instead
+      }
+
+      const tbl = el('table');
+      tbl.innerHTML = `<thead><tr>
+        <th>Test Case</th><th>Policy</th><th>Agent</th><th>Expected</th><th>Actions</th>
+      </tr></thead>`;
+      const tbody = el('tbody');
+      if (testCases.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="5" class="empty-state">No test cases yet. <a href="#test-cases" style="color:var(--blue)">Create one</a>.</td></tr>';
+      } else {
+        for (const tc of testCases.slice(0, 15)) {
+          const tr = el('tr');
+          tr.innerHTML = `
+            <td><strong>${esc(tc.name)}</strong></td>
+            <td><code>${esc(tc.policy_name || '—')}</code></td>
+            <td>${esc(tc.agent_name || '—')}</td>
+            <td>${badge(tc.expected_outcome === 'negative' ? 'xfail' : 'pass')}</td>
+            <td><div class="actions">
+              <button class="btn btn-success btn-sm" onclick="runTestFromDash('${esc(tc.name)}')">▶ Run</button>
+            </div></td>
+          `;
+          tbody.appendChild(tr);
+        }
+      }
+      tbl.appendChild(tbody);
+      tableCard.appendChild(tbl);
+      area.appendChild(tableCard);
+    } catch (e) {
+      area.innerHTML = `<div class="empty-state"><div class="icon">⚠</div>${esc(e.message)}</div>`;
+    }
+  }
+);
+
+window.runTestFromDash = function(name) {
+  location.hash = '#run-test';
+  setTimeout(() => {
+    const sel = document.getElementById('rt-select');
+    if (sel) { sel.value = name; sel.dispatchEvent(new Event('change')); }
+  }, 300);
+};
+
+// ────────────────────────────────────────────────────────────
+// RUN TEST
+// ────────────────────────────────────────────────────────────
+
+register('#run-test',
+  () => ['Run Test', 'Execute a single test case with live log streaming'],
+  async (area) => {
+    let testCases = [];
+    try { testCases = await api('/test-cases'); } catch {}
+
+    area.innerHTML = `
+      <div class="two-col">
+        <div>
+          <div class="card" style="margin-bottom:16px">
+            <h3>Select Test Case</h3>
+            <div class="form-group">
+              <select class="form-control" id="rt-select">
+                <option value="">— choose a test case —</option>
+                ${testCases.map(tc => `<option value="${esc(tc.name)}">${esc(tc.name)}</option>`).join('')}
+              </select>
+            </div>
+            <button class="btn btn-success" id="rt-run-btn" disabled>▶ Run Now</button>
+          </div>
+          <div class="card" id="rt-details" style="display:none">
+            <h3>Test Case Details</h3>
+            <div id="rt-details-body"></div>
+          </div>
+        </div>
+        <div class="card">
+          <h3>Live Log <span id="rt-outcome-badge" style="margin-left:8px"></span></h3>
+          <div class="log-area" id="rt-log">Select a test case and click Run Now.</div>
+        </div>
+      </div>
+    `;
+
+    const sel = document.getElementById('rt-select');
+    const runBtn = document.getElementById('rt-run-btn');
+    const detailsCard = document.getElementById('rt-details');
+    const detailsBody = document.getElementById('rt-details-body');
+    const logArea = document.getElementById('rt-log');
+    const outcomeBadge = document.getElementById('rt-outcome-badge');
+    let activeES = null;
+
+    sel.addEventListener('change', async () => {
+      const name = sel.value;
+      runBtn.disabled = !name;
+      if (!name) { detailsCard.style.display = 'none'; return; }
+      try {
+        const tc = await api(`/test-cases/${encodeURIComponent(name)}`);
+        detailsCard.style.display = '';
+        detailsBody.innerHTML = `
+          <div style="display:grid;grid-template-columns:110px 1fr;gap:8px;font-size:13px">
+            <span style="color:var(--muted)">Policy</span><span><code>${esc(tc.policy_name || '—')}</code></span>
+            <span style="color:var(--muted)">Agent</span><span><code>${esc(tc.agent_name || '—')}</code></span>
+            <span style="color:var(--muted)">Expected</span><span>${badge(tc.expected_outcome === 'negative' ? 'xfail' : 'pass')}</span>
+            <span style="color:var(--muted)">Description</span><span>${esc(tc.description || '—')}</span>
+            <span style="color:var(--muted)">Prompt</span><span style="white-space:pre-wrap;color:var(--muted)">${esc(tc.prompt || '—')}</span>
+          </div>
+        `;
+      } catch (e) {
+        toast('Failed to load test case: ' + e.message, 'error');
+      }
+    });
+
+    runBtn.addEventListener('click', async () => {
+      const name = sel.value;
+      if (!name) return;
+      if (activeES) { activeES.close(); activeES = null; }
+      logArea.textContent = '';
+      outcomeBadge.innerHTML = badge('running');
+      runBtn.disabled = true;
+
+      try {
+        const { run_id } = await api('/runs/test', { method: 'POST', body: { test_case_name: name } });
+        appendLog(logArea, `Run started: ${run_id}\n`, 'info');
+
+        activeES = new EventSource(`/api/runs/test/${encodeURIComponent(run_id)}/stream`);
+        activeES.onmessage = (evt) => {
+          try {
+            const data = JSON.parse(evt.data);
+            if (data.done) {
+              outcomeBadge.innerHTML = badge(data.outcome);
+              appendLog(logArea, `\n--- Done: ${data.outcome.toUpperCase()} ---`, data.outcome === 'pass' || data.outcome === 'xfail' ? 'ok' : 'err');
+              activeES.close(); activeES = null;
+              runBtn.disabled = false;
+            } else if (data.line !== undefined) {
+              appendLog(logArea, data.line, 'info');
+            }
+          } catch {}
+        };
+        activeES.onerror = () => {
+          appendLog(logArea, '\n[Stream error or closed]', 'err');
+          activeES.close(); activeES = null;
+          runBtn.disabled = false;
+        };
+      } catch (e) {
+        toast('Failed to start run: ' + e.message, 'error');
+        outcomeBadge.innerHTML = badge('fail');
+        runBtn.disabled = false;
+      }
+    });
+  }
+);
+
+function appendLog(el, text, cls = 'info') {
+  const span = document.createElement('span');
+  span.className = cls === 'ok' ? 'log-line-ok' : cls === 'err' ? 'log-line-err' : 'log-line-info';
+  span.textContent = text + '\n';
+  el.appendChild(span);
+  el.scrollTop = el.scrollHeight;
+}
+
+// ────────────────────────────────────────────────────────────
+// POLICIES
+// ────────────────────────────────────────────────────────────
+
+register('#policies',
+  () => ['Policies', 'Manage test policies'],
+  async (area) => {
+    area.innerHTML = '<div class="empty-state"><div class="icon">⏳</div>Loading...</div>';
+    try {
+      const policies = await api('/policies');
+      area.innerHTML = '';
+      const header = el('div', { class: 'section-header' });
+      header.innerHTML = `<h2>Policies</h2>`;
+      const addBtn = el('button', { class: 'btn btn-primary', onclick() { location.hash = '#policy-editor'; } }, '+ New Policy');
+      header.appendChild(addBtn);
+      area.appendChild(header);
+
+      const card = el('div', { class: 'card' });
+      if (policies.length === 0) {
+        card.innerHTML = '<div class="empty-state"><div class="icon">🛡</div>No policies yet. Create one in Policy Editor.</div>';
+      } else {
+        const tbl = el('table');
+        tbl.innerHTML = `<thead><tr>
+          <th>Name</th><th>Mode</th><th>Mocks</th><th>Assertions</th><th>Updated</th><th>Actions</th>
+        </tr></thead>`;
+        const tbody = el('tbody');
+        for (const p of policies) {
+          let mode = '—', mocks = 0, assertions = 0;
+          try {
+            const pj = typeof p.policy_json === 'string' ? JSON.parse(p.policy_json) : p.policy_json;
+            if (pj) {
+              mode = pj.mode || (pj.graph ? 'graph' : pj.allowed_tools ? 'control-plane' : '—');
+              mocks = Object.keys(pj.mocks || {}).length;
+              assertions = (pj.assertions || []).length;
+            }
+          } catch {}
+          const tr = el('tr');
+          tr.innerHTML = `
+            <td><strong>${esc(p.name)}</strong>${p.description ? `<br><small style="color:var(--muted)">${esc(p.description)}</small>` : ''}</td>
+            <td><code>${esc(mode)}</code></td>
+            <td>${mocks}</td>
+            <td>${assertions}</td>
+            <td style="color:var(--muted);font-size:12px">${fmtDate(p.updated_at)}</td>
+            <td><div class="actions">
+              <button class="btn btn-ghost btn-sm" onclick="editPolicy('${esc(p.name)}')">Edit</button>
+              <button class="btn btn-danger btn-sm" onclick="deletePolicy('${esc(p.name)}')">Delete</button>
+            </div></td>
+          `;
+          tbody.appendChild(tr);
+        }
+        tbl.appendChild(tbody);
+        card.appendChild(tbl);
+      }
+      area.appendChild(card);
+    } catch (e) {
+      area.innerHTML = `<div class="empty-state"><div class="icon">⚠</div>${esc(e.message)}</div>`;
+    }
+  }
+);
+
+window.editPolicy = function(name) {
+  sessionStorage.setItem('edit-policy', name);
+  location.hash = '#policy-editor';
+};
+
+window.deletePolicy = async function(name) {
+  if (!confirm(`Delete policy "${name}"?`)) return;
+  try {
+    await api(`/policies/${encodeURIComponent(name)}`, { method: 'DELETE' });
+    toast('Policy deleted', 'success');
+    navigate('#policies');
+  } catch (e) { toast('Error: ' + e.message, 'error'); }
+};
+
+// ────────────────────────────────────────────────────────────
+// POLICY EDITOR
+// ────────────────────────────────────────────────────────────
+
+register('#policy-editor',
+  () => ['Policy Editor', 'Create or edit a policy'],
+  async (area) => {
+    const editName = sessionStorage.getItem('edit-policy');
+    sessionStorage.removeItem('edit-policy');
+
+    let existing = null;
+    let existingJson = {};
+    if (editName) {
+      try {
+        existing = await api(`/policies/${encodeURIComponent(editName)}`);
+        existingJson = typeof existing.policy_json === 'string' ? JSON.parse(existing.policy_json) : (existing.policy_json || {});
+      } catch (e) { toast('Failed to load policy: ' + e.message, 'error'); }
+    }
+
+    // State for mocks/assertions
+    let mocks = existingJson.mocks ? Object.entries(existingJson.mocks).map(([tool, cfg]) => ({ tool, response: JSON.stringify(cfg.response || cfg), match: '' })) : [];
+    let assertions = existingJson.assertions ? existingJson.assertions.map(a => typeof a === 'string' ? { target: a, op: 'equals', value: '' } : { target: a.target || '', op: a.op || 'equals', value: a.value || '' }) : [];
+
+    area.innerHTML = `
+      <div class="section-header">
+        <h2>${editName ? 'Edit Policy: ' + esc(editName) : 'New Policy'}</h2>
+        <a href="#policies" class="btn btn-ghost">← Back</a>
+      </div>
+      <div class="two-col" style="align-items:start">
+        <div>
+          <div class="card" style="margin-bottom:16px">
+            <h3>Basic Info</h3>
+            <div class="form-group">
+              <label>Policy Name *</label>
+              <input class="form-control" id="pe-name" value="${esc(existing?.name || '')}" placeholder="my-policy" ${editName ? 'readonly' : ''} />
+            </div>
+            <div class="form-group">
+              <label>Description</label>
+              <input class="form-control" id="pe-desc" value="${esc(existing?.description || '')}" placeholder="Optional description" />
+            </div>
+          </div>
+
+          <div class="card" style="margin-bottom:16px">
+            <h3>Policy Mode</h3>
+            <div id="pe-tabs"></div>
+          </div>
+
+          <div class="card" style="margin-bottom:16px">
+            <h3>Mocks</h3>
+            <div id="pe-mocks"></div>
+            <button class="btn btn-ghost btn-sm" id="pe-add-mock">+ Add Mock</button>
+          </div>
+
+          <div class="card" style="margin-bottom:16px">
+            <h3>Assertions</h3>
+            <div id="pe-asserts"></div>
+            <button class="btn btn-ghost btn-sm" id="pe-add-assert">+ Add Assertion</button>
+          </div>
+
+          <div style="display:flex;gap:10px">
+            <button class="btn btn-primary" id="pe-save">💾 Save Policy</button>
+            <button class="btn btn-ghost" onclick="location.hash='#policies'">Cancel</button>
+          </div>
+        </div>
+        <div class="card">
+          <h3>Policy JSON Preview</h3>
+          <pre class="policy-preview" id="pe-preview">{}</pre>
+        </div>
+      </div>
+    `;
+
+    // Tabs
+    const tabContainer = document.getElementById('pe-tabs');
+    const mode = existingJson.mode || (existingJson.graph ? 'graph' : 'control-plane');
+    makeTabs(tabContainer, [
+      { id: 'graph', label: 'Graph Mode', content: (p) => {
+        p.innerHTML = `
+          <div class="form-group">
+            <label>Nodes (JSON array of strings)</label>
+            <textarea class="form-control" id="pe-nodes" rows="3" placeholder='["agent","llm","tool:search","finish"]'>${esc(JSON.stringify(existingJson.graph?.nodes || existingJson.nodes || []))}</textarea>
+          </div>
+          <div class="form-group">
+            <label>Edges (JSON array of [from,to] pairs)</label>
+            <textarea class="form-control" id="pe-edges" rows="4" placeholder='[["agent","llm"],["llm","finish"]]'>${esc(JSON.stringify(existingJson.graph?.edges || existingJson.edges || []))}</textarea>
+          </div>
+        `;
+        p.querySelectorAll('textarea').forEach(t => t.addEventListener('input', updatePreview));
+      }},
+      { id: 'control', label: 'Control Plane Mode', content: (p) => {
+        p.innerHTML = `
+          <div class="form-group">
+            <label>Allowed Tools (comma-separated)</label>
+            <input class="form-control" id="pe-allowed-tools" value="${esc((existingJson.allowed_tools || []).join(', '))}" placeholder="web_search, calculator" />
+          </div>
+          <div class="form-row">
+            <div class="form-group">
+              <label>Max LLM Calls</label>
+              <input class="form-control" id="pe-max-llm" type="number" value="${esc(existingJson.max_llm_calls ?? '')}" placeholder="e.g. 5" />
+            </div>
+            <div class="form-group">
+              <label>Max Tool Calls</label>
+              <input class="form-control" id="pe-max-tool" type="number" value="${esc(existingJson.max_tool_calls ?? '')}" placeholder="e.g. 10" />
+            </div>
+          </div>
+          <div class="form-group">
+            <label>Max Tokens per Conversation</label>
+            <input class="form-control" id="pe-max-tokens" type="number" value="${esc(existingJson.max_tokens ?? '')}" placeholder="e.g. 4000" />
+          </div>
+        `;
+        p.querySelectorAll('input').forEach(i => i.addEventListener('input', updatePreview));
+      }},
+    ]);
+
+    // Mocks
+    function renderMocks() {
+      const container = document.getElementById('pe-mocks');
+      container.innerHTML = '';
+      mocks.forEach((m, i) => {
+        const row = el('div', { class: 'mock-row' });
+        row.innerHTML = `
+          <input class="form-control" placeholder="tool name" value="${esc(m.tool)}" />
+          <input class="form-control" placeholder='response JSON (e.g. {"result":"ok"})' value="${esc(m.response)}" />
+          <button class="btn btn-danger btn-sm">✕</button>
+        `;
+        const inputs = row.querySelectorAll('input');
+        inputs[0].addEventListener('input', () => { mocks[i].tool = inputs[0].value; updatePreview(); });
+        inputs[1].addEventListener('input', () => { mocks[i].response = inputs[1].value; updatePreview(); });
+        row.querySelector('button').addEventListener('click', () => { mocks.splice(i, 1); renderMocks(); updatePreview(); });
+        container.appendChild(row);
+      });
+    }
+    renderMocks();
+    document.getElementById('pe-add-mock').addEventListener('click', () => {
+      mocks.push({ tool: '', response: '' });
+      renderMocks();
+    });
+
+    // Assertions
+    function renderAsserts() {
+      const container = document.getElementById('pe-asserts');
+      container.innerHTML = '';
+      assertions.forEach((a, i) => {
+        const row = el('div', { class: 'assert-row' });
+        row.innerHTML = `
+          <input class="form-control" placeholder="target (e.g. output, tool:search.output)" value="${esc(a.target)}" style="flex:1.5" />
+          <select class="form-control" style="flex:1">
+            <option value="equals" ${a.op==='equals'?'selected':''}>equals</option>
+            <option value="contains" ${a.op==='contains'?'selected':''}>contains</option>
+            <option value="starts_with" ${a.op==='starts_with'?'selected':''}>starts_with</option>
+            <option value="matches_regex" ${a.op==='matches_regex'?'selected':''}>matches_regex</option>
+          </select>
+          <input class="form-control" placeholder="expected value" value="${esc(a.value)}" style="flex:1.5" />
+          <button class="btn btn-danger btn-sm">✕</button>
+        `;
+        const [tgt, sel, val] = row.querySelectorAll('input, select');
+        tgt.addEventListener('input', () => { assertions[i].target = tgt.value; updatePreview(); });
+        sel.addEventListener('change', () => { assertions[i].op = sel.value; updatePreview(); });
+        val.addEventListener('input', () => { assertions[i].value = val.value; updatePreview(); });
+        row.querySelector('button').addEventListener('click', () => { assertions.splice(i, 1); renderAsserts(); updatePreview(); });
+        container.appendChild(row);
+      });
+    }
+    renderAsserts();
+    document.getElementById('pe-add-assert').addEventListener('click', () => {
+      assertions.push({ target: '', op: 'equals', value: '' });
+      renderAsserts();
+    });
+
+    function buildJson() {
+      const activeTab = tabContainer.querySelector('.tab.active');
+      const isGraph = activeTab && activeTab.textContent.includes('Graph');
+
+      const obj = {};
+      if (isGraph) {
+        obj.mode = 'graph';
+        try { obj.nodes = JSON.parse(document.getElementById('pe-nodes')?.value || '[]'); } catch { obj.nodes = []; }
+        try { obj.edges = JSON.parse(document.getElementById('pe-edges')?.value || '[]'); } catch { obj.edges = []; }
+      } else {
+        obj.mode = 'control-plane';
+        const at = document.getElementById('pe-allowed-tools')?.value || '';
+        if (at.trim()) obj.allowed_tools = at.split(',').map(s => s.trim()).filter(Boolean);
+        const ml = document.getElementById('pe-max-llm')?.value;
+        if (ml) obj.max_llm_calls = parseInt(ml);
+        const mt = document.getElementById('pe-max-tool')?.value;
+        if (mt) obj.max_tool_calls = parseInt(mt);
+        const mtok = document.getElementById('pe-max-tokens')?.value;
+        if (mtok) obj.max_tokens = parseInt(mtok);
+      }
+
+      if (mocks.length > 0) {
+        obj.mocks = {};
+        for (const m of mocks) {
+          if (!m.tool) continue;
+          let resp = m.response;
+          try { resp = JSON.parse(m.response); } catch {}
+          obj.mocks[m.tool] = { enabled: true, response: resp };
+        }
+      }
+      if (assertions.length > 0) {
+        obj.assertions = assertions.filter(a => a.target).map(a => ({
+          target: a.target, op: a.op, value: a.value,
+        }));
+      }
+      return obj;
+    }
+
+    function updatePreview() {
+      const preview = document.getElementById('pe-preview');
+      if (preview) {
+        try { preview.textContent = JSON.stringify(buildJson(), null, 2); } catch {}
+      }
+    }
+    updatePreview();
+
+    // Listen for tab changes
+    tabContainer.querySelectorAll('.tab').forEach(t => {
+      t.addEventListener('click', () => setTimeout(updatePreview, 50));
+    });
+    // Listen for name/desc changes
+    ['pe-name','pe-desc'].forEach(id => {
+      document.getElementById(id)?.addEventListener('input', updatePreview);
+    });
+
+    document.getElementById('pe-save').addEventListener('click', async () => {
+      const name = document.getElementById('pe-name').value.trim();
+      if (!name) { toast('Policy name is required', 'error'); return; }
+      const desc = document.getElementById('pe-desc').value.trim();
+      const policy_json = buildJson();
+      const payload = { name, description: desc, policy_json };
+      try {
+        if (editName) {
+          await api(`/policies/${encodeURIComponent(editName)}`, { method: 'PUT', body: payload });
+          toast('Policy updated', 'success');
+        } else {
+          await api('/policies', { method: 'POST', body: payload });
+          toast('Policy created', 'success');
+        }
+        location.hash = '#policies';
+      } catch (e) { toast('Error: ' + e.message, 'error'); }
+    });
+  }
+);
+
+// ────────────────────────────────────────────────────────────
+// TEST CASES
+// ────────────────────────────────────────────────────────────
+
+register('#test-cases',
+  () => ['Test Cases', 'Manage test cases'],
+  async (area) => {
+    area.innerHTML = '<div class="empty-state"><div class="icon">⏳</div>Loading...</div>';
+    try {
+      const testCases = await api('/test-cases');
+      area.innerHTML = '';
+      const header = el('div', { class: 'section-header' });
+      header.innerHTML = '<h2>Test Cases</h2>';
+      const addBtn = el('button', { class: 'btn btn-primary', onclick() { location.hash = '#test-case-editor'; } }, '+ New Test Case');
+      header.appendChild(addBtn);
+      area.appendChild(header);
+
+      const card = el('div', { class: 'card' });
+      if (testCases.length === 0) {
+        card.innerHTML = '<div class="empty-state"><div class="icon">🧪</div>No test cases yet.</div>';
+      } else {
+        const tbl = el('table');
+        tbl.innerHTML = `<thead><tr>
+          <th>Name</th><th>Policy</th><th>Agent</th><th>Expected</th><th>Actions</th>
+        </tr></thead>`;
+        const tbody = el('tbody');
+        for (const tc of testCases) {
+          const tr = el('tr');
+          const expOutcome = tc.expected_outcome === 'negative' ? 'xfail' : 'pass';
+          tr.innerHTML = `
+            <td><strong>${esc(tc.name)}</strong>${tc.description ? `<br><small style="color:var(--muted)">${esc(tc.description)}</small>` : ''}</td>
+            <td><code>${esc(tc.policy_name || '—')}</code></td>
+            <td><code>${esc(tc.agent_name || '—')}</code></td>
+            <td>${badge(expOutcome)}</td>
+            <td><div class="actions">
+              <button class="btn btn-ghost btn-sm" onclick="editTestCase('${esc(tc.name)}')">Edit</button>
+              <button class="btn btn-danger btn-sm" onclick="deleteTestCase('${esc(tc.name)}')">Delete</button>
+              <button class="btn btn-success btn-sm" onclick="runTestCase('${esc(tc.name)}')">▶ Run</button>
+            </div></td>
+          `;
+          tbody.appendChild(tr);
+        }
+        tbl.appendChild(tbody);
+        card.appendChild(tbl);
+      }
+      area.appendChild(card);
+    } catch (e) {
+      area.innerHTML = `<div class="empty-state"><div class="icon">⚠</div>${esc(e.message)}</div>`;
+    }
+  }
+);
+
+window.editTestCase = function(name) {
+  sessionStorage.setItem('edit-test-case', name);
+  location.hash = '#test-case-editor';
+};
+
+window.deleteTestCase = async function(name) {
+  if (!confirm(`Delete test case "${name}"?`)) return;
+  try {
+    await api(`/test-cases/${encodeURIComponent(name)}`, { method: 'DELETE' });
+    toast('Test case deleted', 'success');
+    navigate('#test-cases');
+  } catch (e) { toast('Error: ' + e.message, 'error'); }
+};
+
+window.runTestCase = function(name) {
+  sessionStorage.setItem('run-test-case', name);
+  location.hash = '#run-test';
+  setTimeout(() => {
+    const sel = document.getElementById('rt-select');
+    if (sel) { sel.value = name; sel.dispatchEvent(new Event('change')); }
+  }, 300);
+};
+
+// ────────────────────────────────────────────────────────────
+// TEST CASE EDITOR
+// ────────────────────────────────────────────────────────────
+
+register('#test-case-editor',
+  () => ['Test Case Editor', 'Create or edit a test case'],
+  async (area) => {
+    const editName = sessionStorage.getItem('edit-test-case');
+    sessionStorage.removeItem('edit-test-case');
+
+    let existing = null;
+    let [policies, agents] = [[], []];
+    try {
+      [policies, agents] = await Promise.all([api('/policies'), api('/agents')]);
+    } catch {}
+    if (editName) {
+      try { existing = await api(`/test-cases/${encodeURIComponent(editName)}`); } catch {}
+    }
+
+    area.innerHTML = `
+      <div class="section-header">
+        <h2>${editName ? 'Edit Test Case: ' + esc(editName) : 'New Test Case'}</h2>
+        <a href="#test-cases" class="btn btn-ghost">← Back</a>
+      </div>
+      <div style="max-width:680px">
+        <div class="card">
+          <div class="form-group">
+            <label>Test Case Name *</label>
+            <input class="form-control" id="tce-name" value="${esc(existing?.name || '')}" placeholder="my-test" ${editName ? 'readonly' : ''} />
+          </div>
+          <div class="form-group">
+            <label>Description</label>
+            <input class="form-control" id="tce-desc" value="${esc(existing?.description || '')}" placeholder="What does this test verify?" />
+          </div>
+          <div class="form-row">
+            <div class="form-group">
+              <label>Policy</label>
+              <select class="form-control" id="tce-policy">
+                <option value="">— none —</option>
+                ${policies.map(p => `<option value="${esc(p.name)}" ${existing?.policy_name===p.name?'selected':''}>${esc(p.name)}</option>`).join('')}
+              </select>
+            </div>
+            <div class="form-group">
+              <label>Agent</label>
+              <select class="form-control" id="tce-agent">
+                <option value="">— none —</option>
+                ${agents.map(a => `<option value="${esc(a.name)}" ${existing?.agent_name===a.name?'selected':''}>${esc(a.name)}</option>`).join('')}
+              </select>
+            </div>
+          </div>
+          <div class="form-group">
+            <label>Prompt</label>
+            <textarea class="form-control" id="tce-prompt" rows="4" placeholder="The user prompt to send to the agent">${esc(existing?.prompt || '')}</textarea>
+          </div>
+          <div class="form-group">
+            <label>Expected Outcome</label>
+            <div class="radio-group">
+              <label class="radio-label"><input type="radio" name="tce-outcome" value="positive" ${!existing || existing.expected_outcome!=='negative'?'checked':''}> Positive (PASS)</label>
+              <label class="radio-label"><input type="radio" name="tce-outcome" value="negative" ${existing?.expected_outcome==='negative'?'checked':''}> Negative (XFAIL)</label>
+            </div>
+            <div class="xfail-banner" id="tce-xfail-banner">
+              This test is expected to fail. The outcome will be reported as XFAIL if the agent fails as expected, or XPASS if it unexpectedly passes.
+            </div>
+          </div>
+          <div style="display:flex;gap:10px;margin-top:6px">
+            <button class="btn btn-primary" id="tce-save">💾 Save</button>
+            <button class="btn btn-ghost" onclick="location.hash='#test-cases'">Cancel</button>
+          </div>
+        </div>
+      </div>
+    `;
+
+    const xfailBanner = document.getElementById('tce-xfail-banner');
+    document.querySelectorAll('input[name="tce-outcome"]').forEach(r => {
+      r.addEventListener('change', () => {
+        xfailBanner.style.display = r.value === 'negative' && r.checked ? 'block' : 'none';
+      });
+    });
+    // Show banner if negative already selected
+    if (existing?.expected_outcome === 'negative') xfailBanner.style.display = 'block';
+
+    document.getElementById('tce-save').addEventListener('click', async () => {
+      const name = document.getElementById('tce-name').value.trim();
+      if (!name) { toast('Name is required', 'error'); return; }
+      const payload = {
+        name,
+        description: document.getElementById('tce-desc').value.trim(),
+        policy_name: document.getElementById('tce-policy').value || null,
+        agent_name: document.getElementById('tce-agent').value || null,
+        prompt: document.getElementById('tce-prompt').value.trim(),
+        expected_outcome: document.querySelector('input[name="tce-outcome"]:checked')?.value === 'negative' ? 'negative' : 'positive',
+      };
+      try {
+        if (editName) {
+          await api(`/test-cases/${encodeURIComponent(editName)}`, { method: 'PUT', body: payload });
+          toast('Test case updated', 'success');
+        } else {
+          await api('/test-cases', { method: 'POST', body: payload });
+          toast('Test case created', 'success');
+        }
+        location.hash = '#test-cases';
+      } catch (e) { toast('Error: ' + e.message, 'error'); }
+    });
+  }
+);
+
+// ────────────────────────────────────────────────────────────
+// MCP SERVERS
+// ────────────────────────────────────────────────────────────
+
+register('#mcp-servers',
+  () => ['MCP Servers', 'Manage Model Context Protocol servers'],
+  async (area) => {
+    area.innerHTML = '<div class="empty-state"><div class="icon">⏳</div>Loading...</div>';
+    try {
+      const servers = await api('/mcp-servers');
+      area.innerHTML = '';
+      const header = el('div', { class: 'section-header' });
+      header.innerHTML = '<h2>MCP Servers</h2>';
+      const addBtn = el('button', { class: 'btn btn-primary', onclick() { showMcpForm(area); } }, '+ Add Server');
+      header.appendChild(addBtn);
+      area.appendChild(header);
+
+      const listCard = el('div', { class: 'card' });
+      if (servers.length === 0) {
+        listCard.innerHTML = '<div class="empty-state"><div class="icon">🔌</div>No MCP servers registered.</div>';
+      } else {
+        for (const s of servers) {
+          const row = el('div', { class: 'item-row' });
+          row.innerHTML = `
+            <span class="dot ${s.status === 'online' ? 'dot-green' : 'dot-muted'}"></span>
+            <div style="flex:1">
+              <div style="font-weight:600">${esc(s.name)}</div>
+              <div style="font-size:12px;color:var(--muted)">${esc(s.url || s.endpoint || '—')}</div>
+              <div class="tool-list" id="mcp-tools-${esc(s.name)}"></div>
+            </div>
+            <div class="actions">
+              <button class="btn btn-ghost btn-sm" onclick="fetchMcpTools('${esc(s.name)}')">Fetch Tools</button>
+              <button class="btn btn-ghost btn-sm" onclick="editMcpServer('${esc(s.name)}')">Edit</button>
+              <button class="btn btn-danger btn-sm" onclick="deleteMcpServer('${esc(s.name)}')">Delete</button>
+            </div>
+          `;
+          listCard.appendChild(row);
+        }
+      }
+      area.appendChild(listCard);
+    } catch (e) {
+      area.innerHTML = `<div class="empty-state"><div class="icon">⚠</div>${esc(e.message)}</div>`;
+    }
+  }
+);
+
+window.fetchMcpTools = async function(name) {
+  try {
+    const result = await api(`/mcp-servers/${encodeURIComponent(name)}/fetch-tools`, { method: 'POST' });
+    const container = document.getElementById(`mcp-tools-${name}`);
+    if (!container) return;
+    container.innerHTML = '';
+    const tools = result.tools || result || [];
+    if (tools.length === 0) {
+      container.innerHTML = '<div style="color:var(--muted);font-size:12px;margin-top:6px">No tools found.</div>';
+    } else {
+      for (const t of tools) {
+        container.innerHTML += `<div class="tool-item"><div class="tool-name">${esc(t.name || t)}</div><div class="tool-desc">${esc(t.description || '')}</div></div>`;
+      }
+    }
+    toast('Tools fetched', 'success');
+  } catch (e) { toast('Error: ' + e.message, 'error'); }
+};
+
+window.editMcpServer = function(name) {
+  sessionStorage.setItem('edit-mcp', name);
+  navigate('#mcp-servers');
+};
+
+window.deleteMcpServer = async function(name) {
+  if (!confirm(`Delete MCP server "${name}"?`)) return;
+  try {
+    await api(`/mcp-servers/${encodeURIComponent(name)}`, { method: 'DELETE' });
+    toast('Server deleted', 'success');
+    navigate('#mcp-servers');
+  } catch (e) { toast('Error: ' + e.message, 'error'); }
+};
+
+function showMcpForm(area, existing = null) {
+  const formCard = el('div', { class: 'card', style: 'margin-top:16px' });
+  formCard.innerHTML = `
+    <h3>${existing ? 'Edit Server: ' + esc(existing.name) : 'Add MCP Server'}</h3>
+    <div class="form-group"><label>Name *</label><input class="form-control" id="mcp-form-name" value="${esc(existing?.name || '')}" placeholder="my-mcp-server" ${existing ? 'readonly' : ''} /></div>
+    <div class="form-group"><label>URL / Endpoint</label><input class="form-control" id="mcp-form-url" value="${esc(existing?.url || existing?.endpoint || '')}" placeholder="http://localhost:8080" /></div>
+    <div class="form-group"><label>Description</label><input class="form-control" id="mcp-form-desc" value="${esc(existing?.description || '')}" /></div>
+    <div style="display:flex;gap:10px">
+      <button class="btn btn-primary" id="mcp-form-save">Save</button>
+      <button class="btn btn-ghost" onclick="navigate('#mcp-servers')">Cancel</button>
+    </div>
+  `;
+  area.appendChild(formCard);
+
+  document.getElementById('mcp-form-save').addEventListener('click', async () => {
+    const name = document.getElementById('mcp-form-name').value.trim();
+    if (!name) { toast('Name required', 'error'); return; }
+    const payload = {
+      name,
+      url: document.getElementById('mcp-form-url').value.trim(),
+      description: document.getElementById('mcp-form-desc').value.trim(),
+    };
+    try {
+      if (existing) {
+        await api(`/mcp-servers/${encodeURIComponent(existing.name)}`, { method: 'PUT', body: payload });
+        toast('Server updated', 'success');
+      } else {
+        await api('/mcp-servers', { method: 'POST', body: payload });
+        toast('Server added', 'success');
+      }
+      navigate('#mcp-servers');
+    } catch (e) { toast('Error: ' + e.message, 'error'); }
+  });
+}
+
+// ────────────────────────────────────────────────────────────
+// AGENTS
+// ────────────────────────────────────────────────────────────
+
+register('#agents',
+  () => ['Agents', 'Registered LangChain agents'],
+  async (area) => {
+    area.innerHTML = '<div class="empty-state"><div class="icon">⏳</div>Loading...</div>';
+    try {
+      const agents = await api('/agents');
+      area.innerHTML = '';
+      const header = el('div', { class: 'section-header' });
+      header.innerHTML = '<h2>Agents</h2>';
+      const addBtn = el('button', { class: 'btn btn-primary', onclick() { showAgentForm(area); } }, '+ Add Agent');
+      header.appendChild(addBtn);
+      area.appendChild(header);
+
+      const card = el('div', { class: 'card' });
+      if (agents.length === 0) {
+        card.innerHTML = '<div class="empty-state"><div class="icon">🤖</div>No agents registered.</div>';
+      } else {
+        const tbl = el('table');
+        tbl.innerHTML = `<thead><tr><th>Name</th><th>File Path</th><th>Description</th><th>Actions</th></tr></thead>`;
+        const tbody = el('tbody');
+        for (const a of agents) {
+          const tr = el('tr');
+          tr.innerHTML = `
+            <td><strong>${esc(a.name)}</strong></td>
+            <td><code style="font-size:11px">${esc(a.file_path || '—')}</code></td>
+            <td style="color:var(--muted)">${esc(a.description || '—')}</td>
+            <td><div class="actions">
+              <button class="btn btn-ghost btn-sm" onclick="editAgent('${esc(a.name)}')">Edit</button>
+              <button class="btn btn-danger btn-sm" onclick="deleteAgent('${esc(a.name)}')">Delete</button>
+            </div></td>
+          `;
+          tbody.appendChild(tr);
+        }
+        tbl.appendChild(tbody);
+        card.appendChild(tbl);
+      }
+      area.appendChild(card);
+    } catch (e) {
+      area.innerHTML = `<div class="empty-state"><div class="icon">⚠</div>${esc(e.message)}</div>`;
+    }
+  }
+);
+
+window.editAgent = async function(name) {
+  try {
+    const agents = await api('/agents');
+    const a = agents.find(x => x.name === name);
+    const area = document.getElementById('view-area');
+    showAgentForm(area, a);
+  } catch (e) { toast('Error: ' + e.message, 'error'); }
+};
+
+window.deleteAgent = async function(name) {
+  if (!confirm(`Delete agent "${name}"?`)) return;
+  try {
+    await api(`/agents/${encodeURIComponent(name)}`, { method: 'DELETE' });
+    toast('Agent deleted', 'success');
+    navigate('#agents');
+  } catch (e) { toast('Error: ' + e.message, 'error'); }
+};
+
+function showAgentForm(area, existing = null) {
+  // Remove any old form
+  const oldForm = area.querySelector('.agent-form-card');
+  if (oldForm) oldForm.remove();
+
+  const formCard = el('div', { class: 'card agent-form-card', style: 'margin-top:16px' });
+  formCard.innerHTML = `
+    <h3>${existing ? 'Edit Agent: ' + esc(existing.name) : 'Add Agent'}</h3>
+    <div class="form-group"><label>Name *</label><input class="form-control" id="af-name" value="${esc(existing?.name || '')}" placeholder="my-agent" ${existing ? 'readonly' : ''} /></div>
+    <div class="form-group"><label>File Path</label><input class="form-control" id="af-path" value="${esc(existing?.file_path || '')}" placeholder="/path/to/agent.py" /></div>
+    <div class="form-group"><label>Description</label><textarea class="form-control" id="af-desc" rows="2">${esc(existing?.description || '')}</textarea></div>
+    <div style="display:flex;gap:10px">
+      <button class="btn btn-primary" id="af-save">Save</button>
+      <button class="btn btn-ghost" onclick="navigate('#agents')">Cancel</button>
+    </div>
+  `;
+  area.appendChild(formCard);
+
+  document.getElementById('af-save').addEventListener('click', async () => {
+    const name = document.getElementById('af-name').value.trim();
+    if (!name) { toast('Name required', 'error'); return; }
+    const payload = {
+      name,
+      file_path: document.getElementById('af-path').value.trim(),
+      description: document.getElementById('af-desc').value.trim(),
+    };
+    try {
+      if (existing) {
+        await api(`/agents/${encodeURIComponent(existing.name)}`, { method: 'PUT', body: payload });
+        toast('Agent updated', 'success');
+      } else {
+        await api('/agents', { method: 'POST', body: payload });
+        toast('Agent added', 'success');
+      }
+      navigate('#agents');
+    } catch (e) { toast('Error: ' + e.message, 'error'); }
+  });
+}
+
+// ────────────────────────────────────────────────────────────
+// TEST SUITES
+// ────────────────────────────────────────────────────────────
+
+register('#suites',
+  () => ['Test Suites', 'Manage test suites'],
+  async (area) => {
+    area.innerHTML = '<div class="empty-state"><div class="icon">⏳</div>Loading...</div>';
+    try {
+      const [suites, testCases] = await Promise.all([api('/suites'), api('/test-cases').catch(() => [])]);
+      area.innerHTML = '';
+      const header = el('div', { class: 'section-header' });
+      header.innerHTML = '<h2>Test Suites</h2>';
+      const addBtn = el('button', { class: 'btn btn-primary', onclick() { showSuiteEditor(area, null, testCases); } }, '+ New Suite');
+      header.appendChild(addBtn);
+      area.appendChild(header);
+
+      const twoCol = el('div', { class: 'two-col' });
+
+      // Suite list
+      const listCard = el('div', { class: 'card' });
+      listCard.innerHTML = '<h3>All Suites</h3>';
+      if (suites.length === 0) {
+        listCard.innerHTML += '<div class="empty-state"><div class="icon">📦</div>No suites yet.</div>';
+      } else {
+        for (const s of suites) {
+          const tcCount = (s.test_case_names || s.test_cases || []).length;
+          const row = el('div', { class: 'item-row' });
+          row.innerHTML = `
+            <div style="flex:1">
+              <div style="font-weight:600">${esc(s.name)}</div>
+              <div style="font-size:12px;color:var(--muted)">${tcCount} test case${tcCount !== 1 ? 's' : ''}</div>
+            </div>
+            <div class="actions">
+              <button class="btn btn-success btn-sm" onclick="goRunSuite('${esc(s.name)}')">▶ Run</button>
+              <button class="btn btn-ghost btn-sm" onclick="editSuite('${esc(s.name)}')">Edit</button>
+              <button class="btn btn-ghost btn-sm" onclick="goSuiteHistory('${esc(s.name)}')">History</button>
+              <button class="btn btn-danger btn-sm" onclick="deleteSuite('${esc(s.name)}')">Delete</button>
+            </div>
+          `;
+          listCard.appendChild(row);
+        }
+      }
+      twoCol.appendChild(listCard);
+
+      // Editor panel
+      const editorCard = el('div', { class: 'card' });
+      editorCard.id = 'suite-editor-panel';
+      editorCard.innerHTML = '<h3>Suite Editor</h3><div class="empty-state" style="padding:20px">Select a suite to edit or create a new one.</div>';
+      twoCol.appendChild(editorCard);
+      area.appendChild(twoCol);
+
+      // Check for edit request
+      const editName = sessionStorage.getItem('edit-suite');
+      if (editName) {
+        sessionStorage.removeItem('edit-suite');
+        const s = suites.find(x => x.name === editName);
+        if (s) showSuiteEditor(editorCard, s, testCases, true);
+      }
+    } catch (e) {
+      area.innerHTML = `<div class="empty-state"><div class="icon">⚠</div>${esc(e.message)}</div>`;
+    }
+  }
+);
+
+function showSuiteEditor(container, existing, testCases, inplace = false) {
+  const target = inplace ? container : (document.getElementById('suite-editor-panel') || container);
+  const selected = new Set(existing ? (existing.test_case_names || existing.test_cases || []) : []);
+  target.innerHTML = `
+    <h3>${existing ? 'Edit Suite: ' + esc(existing.name) : 'New Suite'}</h3>
+    <div class="form-group"><label>Suite Name *</label><input class="form-control" id="se-name" value="${esc(existing?.name || '')}" placeholder="my-suite" ${existing ? 'readonly' : ''} /></div>
+    <div class="form-group"><label>Description</label><input class="form-control" id="se-desc" value="${esc(existing?.description || '')}" /></div>
+    <div class="form-group">
+      <label>Test Cases</label>
+      <div id="se-tc-list" style="max-height:280px;overflow-y:auto;border:1px solid var(--line);border-radius:8px;padding:6px">
+        ${testCases.length === 0 ? '<div style="padding:10px;color:var(--muted);font-size:12px">No test cases available.</div>' :
+          testCases.map(tc => `
+            <label class="test-check-item">
+              <input type="checkbox" value="${esc(tc.name)}" ${selected.has(tc.name) ? 'checked' : ''} />
+              <span>${esc(tc.name)}</span>
+              ${tc.policy_name ? `<code style="font-size:11px">${esc(tc.policy_name)}</code>` : ''}
+            </label>
+          `).join('')}
+      </div>
+    </div>
+    <div style="display:flex;gap:10px">
+      <button class="btn btn-primary" id="se-save">Save Suite</button>
+      <button class="btn btn-ghost" onclick="navigate('#suites')">Cancel</button>
+    </div>
+  `;
+
+  document.getElementById('se-save').addEventListener('click', async () => {
+    const name = document.getElementById('se-name').value.trim();
+    if (!name) { toast('Name required', 'error'); return; }
+    const tcNames = [...document.querySelectorAll('#se-tc-list input:checked')].map(x => x.value);
+    const payload = {
+      name,
+      description: document.getElementById('se-desc').value.trim(),
+      test_case_names: tcNames,
+    };
+    try {
+      if (existing) {
+        await api(`/suites/${encodeURIComponent(existing.name)}`, { method: 'PUT', body: payload });
+        toast('Suite updated', 'success');
+      } else {
+        await api('/suites', { method: 'POST', body: payload });
+        toast('Suite created', 'success');
+      }
+      navigate('#suites');
+    } catch (e) { toast('Error: ' + e.message, 'error'); }
+  });
+}
+
+window.editSuite = function(name) {
+  sessionStorage.setItem('edit-suite', name);
+  navigate('#suites');
+};
+
+window.deleteSuite = async function(name) {
+  if (!confirm(`Delete suite "${name}"?`)) return;
+  try {
+    await api(`/suites/${encodeURIComponent(name)}`, { method: 'DELETE' });
+    toast('Suite deleted', 'success');
+    navigate('#suites');
+  } catch (e) { toast('Error: ' + e.message, 'error'); }
+};
+
+window.goRunSuite = function(name) {
+  sessionStorage.setItem('run-suite', name);
+  location.hash = '#run-suite';
+};
+
+window.goSuiteHistory = function(name) {
+  sessionStorage.setItem('history-suite', name);
+  location.hash = '#history';
+};
+
+// ────────────────────────────────────────────────────────────
+// RUN SUITE
+// ────────────────────────────────────────────────────────────
+
+register('#run-suite',
+  () => ['Run Suite', 'Execute all tests in a suite'],
+  async (area) => {
+    let suites = [];
+    try { suites = await api('/suites'); } catch {}
+    const preselect = sessionStorage.getItem('run-suite') || '';
+    sessionStorage.removeItem('run-suite');
+
+    area.innerHTML = `
+      <div class="section-header">
+        <h2>Run Suite</h2>
+      </div>
+      <div class="two-col" style="align-items:start">
+        <div>
+          <div class="card" style="margin-bottom:16px">
+            <h3>Select Suite</h3>
+            <div class="form-group">
+              <select class="form-control" id="rs-select">
+                <option value="">— choose a suite —</option>
+                ${suites.map(s => `<option value="${esc(s.name)}" ${s.name===preselect?'selected':''}>${esc(s.name)}</option>`).join('')}
+              </select>
+            </div>
+            <button class="btn btn-success" id="rs-run-btn" ${!preselect?'disabled':''}>▶ Run All</button>
+          </div>
+          <div class="card" id="rs-test-list">
+            <h3>Test Status</h3>
+            <div class="empty-state" style="padding:20px">Select a suite to begin.</div>
+          </div>
+        </div>
+        <div class="card">
+          <h3>Live Log <span id="rs-summary" style="margin-left:8px"></span></h3>
+          <div class="log-area" id="rs-log">Run output will appear here.</div>
+        </div>
+      </div>
+    `;
+
+    const sel = document.getElementById('rs-select');
+    const runBtn = document.getElementById('rs-run-btn');
+    const testList = document.getElementById('rs-test-list');
+    const logArea = document.getElementById('rs-log');
+    const summaryEl = document.getElementById('rs-summary');
+    let activeES = null;
+    let testStatus = {};
+
+    async function loadSuiteDetails(name) {
+      runBtn.disabled = !name;
+      if (!name) return;
+      try {
+        const suite = await api(`/suites/${encodeURIComponent(name)}`);
+        const names = suite.test_case_names || suite.test_cases || [];
+        testStatus = {};
+        names.forEach(n => testStatus[n] = 'pending');
+        renderTestList(names);
+      } catch {}
+    }
+
+    function renderTestList(names) {
+      testList.innerHTML = '<h3>Test Status</h3>';
+      if (names.length === 0) {
+        testList.innerHTML += '<div class="empty-state">No test cases in this suite.</div>';
+        return;
+      }
+      for (const name of names) {
+        const row = el('div', { class: 'suite-test-row', id: `sr-row-${CSS.escape(name)}` });
+        row.innerHTML = `
+          <span class="name">${esc(name)}</span>
+          <span class="outcome-badge">${badge(testStatus[name] || 'pending')}</span>
+        `;
+        testList.appendChild(row);
+      }
+    }
+
+    function updateTestRow(name, status, outcome) {
+      const row = document.getElementById(`sr-row-${CSS.escape(name)}`);
+      if (!row) return;
+      const ob = row.querySelector('.outcome-badge');
+      if (ob) ob.innerHTML = badge(status === 'running' ? 'running' : outcome || status);
+    }
+
+    if (preselect) loadSuiteDetails(preselect);
+    sel.addEventListener('change', () => loadSuiteDetails(sel.value));
+
+    runBtn.addEventListener('click', async () => {
+      const name = sel.value;
+      if (!name) return;
+      if (activeES) { activeES.close(); activeES = null; }
+      logArea.textContent = '';
+      summaryEl.innerHTML = badge('running');
+      runBtn.disabled = true;
+
+      // Reset all to pending
+      Object.keys(testStatus).forEach(k => {
+        testStatus[k] = 'pending';
+        updateTestRow(k, 'pending', null);
+      });
+
+      try {
+        const { suite_run_id } = await api('/runs/suite', { method: 'POST', body: { suite_name: name } });
+        appendLog(logArea, `Suite run started: ${suite_run_id}\n`, 'info');
+
+        activeES = new EventSource(`/api/runs/suite/${encodeURIComponent(suite_run_id)}/stream`);
+        activeES.onmessage = (evt) => {
+          try {
+            const data = JSON.parse(evt.data);
+            if (data.done) {
+              activeES.close(); activeES = null;
+              runBtn.disabled = false;
+              const c = data.counts || {};
+              summaryEl.innerHTML = `<span class="badge badge-pass">✓ ${c.pass||0}</span> <span class="badge badge-fail">✗ ${c.fail||0}</span> <span class="badge badge-xfail">${c.xfail||0} xfail</span>`;
+              appendLog(logArea, `\n--- Suite Done ---\nPass: ${c.pass||0}  Fail: ${c.fail||0}  XFail: ${c.xfail||0}`, 'ok');
+            } else if (data.test) {
+              updateTestRow(data.test, data.status, data.outcome);
+              if (data.log) appendLog(logArea, `[${data.test}] ${data.log}`, 'info');
+              else appendLog(logArea, `[${data.test}] ${data.status}${data.outcome ? ' → ' + data.outcome : ''}`, 'info');
+            }
+          } catch {}
+        };
+        activeES.onerror = () => {
+          appendLog(logArea, '\n[Stream error or closed]', 'err');
+          activeES.close(); activeES = null;
+          runBtn.disabled = false;
+        };
+      } catch (e) {
+        toast('Failed to start suite run: ' + e.message, 'error');
+        runBtn.disabled = false;
+      }
+    });
+  }
+);
+
+// ────────────────────────────────────────────────────────────
+// HISTORY
+// ────────────────────────────────────────────────────────────
+
+register('#history',
+  () => ['History', 'Suite run history and pass-rate trends'],
+  async (area) => {
+    let suites = [];
+    try { suites = await api('/suites'); } catch {}
+    const preselect = sessionStorage.getItem('history-suite') || '';
+    sessionStorage.removeItem('history-suite');
+
+    area.innerHTML = `
+      <div class="section-header"><h2>History</h2></div>
+      <div class="card" style="margin-bottom:16px">
+        <div class="form-group" style="margin-bottom:0">
+          <label>Suite</label>
+          <select class="form-control" id="hist-select" style="max-width:320px">
+            <option value="">— choose a suite —</option>
+            ${suites.map(s => `<option value="${esc(s.name)}" ${s.name===preselect?'selected':''}>${esc(s.name)}</option>`).join('')}
+          </select>
+        </div>
+      </div>
+      <div id="hist-content"></div>
+    `;
+
+    const sel = document.getElementById('hist-select');
+    const content = document.getElementById('hist-content');
+
+    async function loadHistory(name) {
+      if (!name) { content.innerHTML = ''; return; }
+      content.innerHTML = '<div class="empty-state"><div class="icon">⏳</div>Loading...</div>';
+      try {
+        const runs = await api(`/runs/suite-history/${encodeURIComponent(name)}`);
+        content.innerHTML = '';
+        if (runs.length === 0) {
+          content.innerHTML = '<div class="empty-state">No runs yet for this suite.</div>';
+          return;
+        }
+
+        // Chart
+        const chartCard = el('div', { class: 'card', style: 'margin-bottom:16px' });
+        chartCard.innerHTML = '<h3>Pass Rate Trend</h3>';
+        const canvas = el('canvas', { class: 'chart-canvas', id: 'hist-chart' });
+        chartCard.appendChild(canvas);
+        content.appendChild(chartCard);
+        drawPassRateChart(canvas, runs);
+
+        // Table
+        const tableCard = el('div', { class: 'card' });
+        tableCard.innerHTML = '<h3>All Runs</h3>';
+        const tbl = el('table');
+        tbl.innerHTML = `<thead><tr>
+          <th>Run ID</th><th>Started</th><th>Pass</th><th>Fail</th><th>XFail</th><th>XPass</th><th>Total</th>
+        </tr></thead>`;
+        const tbody = el('tbody');
+        for (const r of runs.slice().reverse()) {
+          const c = r.counts || {};
+          const total = (c.pass||0) + (c.fail||0) + (c.xfail||0) + (c.xpass||0);
+          const tr = el('tr');
+          tr.innerHTML = `
+            <td><code style="font-size:11px">${esc(r.suite_run_id || r.id || '—')}</code></td>
+            <td style="color:var(--muted);font-size:12px">${fmtDate(r.started_at || r.created_at)}</td>
+            <td class="c-green">${c.pass||0}</td>
+            <td class="c-red">${c.fail||0}</td>
+            <td class="c-cyan">${c.xfail||0}</td>
+            <td class="c-yellow">${c.xpass||0}</td>
+            <td>${total}</td>
+          `;
+          tbody.appendChild(tr);
+        }
+        tbl.appendChild(tbody);
+        tableCard.appendChild(tbl);
+        content.appendChild(tableCard);
+      } catch (e) {
+        content.innerHTML = `<div class="empty-state"><div class="icon">⚠</div>${esc(e.message)}</div>`;
+      }
+    }
+
+    if (preselect) loadHistory(preselect);
+    sel.addEventListener('change', () => loadHistory(sel.value));
+  }
+);
+
+function drawPassRateChart(canvas, runs) {
+  // Draw after layout
+  requestAnimationFrame(() => {
+    const W = canvas.offsetWidth || 600;
+    const H = canvas.offsetHeight || 180;
+    canvas.width = W;
+    canvas.height = H;
+    const ctx = canvas.getContext('2d');
+    ctx.clearRect(0, 0, W, H);
+
+    const data = runs.slice(-20).map(r => {
+      const c = r.counts || {};
+      const total = (c.pass||0) + (c.fail||0) + (c.xfail||0) + (c.xpass||0);
+      return total === 0 ? 0 : Math.round(((c.pass||0) + (c.xfail||0)) / total * 100);
+    });
+
+    if (data.length === 0) return;
+
+    const pad = { t: 20, b: 30, l: 40, r: 10 };
+    const chartW = W - pad.l - pad.r;
+    const chartH = H - pad.t - pad.b;
+    const barW = Math.max(4, Math.min(40, chartW / data.length - 4));
+    const barGap = (chartW - barW * data.length) / (data.length + 1);
+
+    // Grid lines
+    ctx.strokeStyle = 'rgba(43,58,89,0.7)';
+    ctx.lineWidth = 1;
+    [0, 25, 50, 75, 100].forEach(pct => {
+      const y = pad.t + chartH - (pct / 100) * chartH;
+      ctx.beginPath(); ctx.moveTo(pad.l, y); ctx.lineTo(W - pad.r, y); ctx.stroke();
+      ctx.fillStyle = '#9fb0d1';
+      ctx.font = '10px Inter, sans-serif';
+      ctx.textAlign = 'right';
+      ctx.fillText(pct + '%', pad.l - 4, y + 3);
+    });
+
+    // Bars
+    data.forEach((val, i) => {
+      const x = pad.l + barGap + i * (barW + barGap);
+      const barH = (val / 100) * chartH;
+      const y = pad.t + chartH - barH;
+      const color = val >= 80 ? '#1fbf75' : val >= 50 ? '#f2b94b' : '#e05252';
+      ctx.fillStyle = color + '33';
+      ctx.fillRect(x, y, barW, barH);
+      ctx.fillStyle = color;
+      ctx.fillRect(x, y, barW, 2);
+
+      // Label
+      if (barW > 16) {
+        ctx.fillStyle = color;
+        ctx.font = 'bold 10px Inter, sans-serif';
+        ctx.textAlign = 'center';
+        ctx.fillText(val + '%', x + barW / 2, y - 4);
+      }
+    });
+
+    // X axis labels (run numbers)
+    ctx.fillStyle = '#9fb0d1';
+    ctx.font = '9px Inter, sans-serif';
+    ctx.textAlign = 'center';
+    data.forEach((_, i) => {
+      const x = pad.l + barGap + i * (barW + barGap) + barW / 2;
+      ctx.fillText('#' + (i + 1), x, H - 8);
+    });
+  });
+}
+
+// ────────────────────────────────────────────────────────────
+// COMPARE RUNS
+// ────────────────────────────────────────────────────────────
+
+register('#compare',
+  () => ['Compare Runs', 'Compare two suite runs side by side'],
+  async (area) => {
+    let suites = [];
+    try { suites = await api('/suites'); } catch {}
+
+    area.innerHTML = `
+      <div class="section-header"><h2>Compare Runs</h2></div>
+      <div class="card" style="margin-bottom:16px">
+        <div class="form-row">
+          <div class="form-group">
+            <label>Suite</label>
+            <select class="form-control" id="cmp-suite">
+              <option value="">— choose a suite —</option>
+              ${suites.map(s => `<option value="${esc(s.name)}">${esc(s.name)}</option>`).join('')}
+            </select>
+          </div>
+          <div></div>
+        </div>
+        <div class="form-row" id="cmp-run-selects" style="display:none">
+          <div class="form-group">
+            <label>Run A</label>
+            <select class="form-control" id="cmp-run-a"><option value="">— select run —</option></select>
+          </div>
+          <div class="form-group">
+            <label>Run B</label>
+            <select class="form-control" id="cmp-run-b"><option value="">— select run —</option></select>
+          </div>
+        </div>
+        <button class="btn btn-primary" id="cmp-btn" disabled>Compare</button>
+      </div>
+      <div id="cmp-result"></div>
+    `;
+
+    const suiteSel = document.getElementById('cmp-suite');
+    const runSelects = document.getElementById('cmp-run-selects');
+    const runA = document.getElementById('cmp-run-a');
+    const runB = document.getElementById('cmp-run-b');
+    const cmpBtn = document.getElementById('cmp-btn');
+    const result = document.getElementById('cmp-result');
+    let allRuns = [];
+
+    suiteSel.addEventListener('change', async () => {
+      const name = suiteSel.value;
+      if (!name) { runSelects.style.display = 'none'; cmpBtn.disabled = true; return; }
+      try {
+        allRuns = await api(`/runs/suite-history/${encodeURIComponent(name)}`);
+        const opts = allRuns.map((r, i) => `<option value="${i}">${esc(r.suite_run_id || r.id || 'Run ' + (i+1))} — ${fmtDate(r.started_at || r.created_at)}</option>`).join('');
+        runA.innerHTML = '<option value="">— select —</option>' + opts;
+        runB.innerHTML = '<option value="">— select —</option>' + opts;
+        runSelects.style.display = '';
+      } catch (e) { toast('Error loading history: ' + e.message, 'error'); }
+    });
+
+    [runA, runB].forEach(s => s.addEventListener('change', () => {
+      cmpBtn.disabled = !(runA.value !== '' && runB.value !== '');
+    }));
+
+    cmpBtn.addEventListener('click', () => {
+      const a = allRuns[parseInt(runA.value)];
+      const b = allRuns[parseInt(runB.value)];
+      if (!a || !b) return;
+      renderComparison(result, a, b);
+    });
+  }
+);
+
+function renderComparison(container, runA, runB) {
+  const testsA = {};
+  const testsB = {};
+  (runA.test_runs || []).forEach(r => testsA[r.test_case_name || r.name] = r.outcome);
+  (runB.test_runs || []).forEach(r => testsB[r.test_case_name || r.name] = r.outcome);
+
+  const allTests = [...new Set([...Object.keys(testsA), ...Object.keys(testsB)])];
+
+  if (allTests.length === 0) {
+    container.innerHTML = '<div class="empty-state">No per-test data available for these runs.</div>';
+    return;
+  }
+
+  const card = el('div', { class: 'card' });
+  card.innerHTML = `
+    <h3>Per-Test Comparison
+      <span style="margin-left:12px;font-size:11px;font-weight:400;color:var(--muted)">
+        <span style="display:inline-block;width:10px;height:10px;background:rgba(224,82,82,0.15);border:1px solid rgba(224,82,82,0.3);margin-right:4px;border-radius:2px"></span>Regression
+        <span style="display:inline-block;width:10px;height:10px;background:rgba(31,191,117,0.12);border:1px solid rgba(31,191,117,0.25);margin-right:4px;margin-left:10px;border-radius:2px"></span>Fixed
+      </span>
+    </h3>
+  `;
+  const tbl = el('table');
+  tbl.innerHTML = `<thead><tr>
+    <th>Test</th>
+    <th>Run A — ${esc(runA.suite_run_id || runA.id || 'A')}</th>
+    <th>Run B — ${esc(runB.suite_run_id || runB.id || 'B')}</th>
+    <th>Change</th>
+  </tr></thead>`;
+  const tbody = el('tbody');
+  for (const name of allTests) {
+    const a = testsA[name] || null;
+    const b = testsB[name] || null;
+    const isRegression = (a === 'pass' || a === 'xfail') && (b === 'fail' || b === 'xpass');
+    const isFixed = (a === 'fail' || a === 'xpass') && (b === 'pass' || b === 'xfail');
+    const tr = el('tr', { class: isRegression ? 'compare-regression' : isFixed ? 'compare-fixed' : '' });
+    tr.innerHTML = `
+      <td><strong>${esc(name)}</strong></td>
+      <td>${badge(a)}</td>
+      <td>${badge(b)}</td>
+      <td>${isRegression ? '<span class="badge badge-fail">REGRESSION</span>' : isFixed ? '<span class="badge badge-pass">FIXED</span>' : '<span class="badge badge-none">—</span>'}</td>
+    `;
+    tbody.appendChild(tr);
+  }
+  tbl.appendChild(tbody);
+  card.appendChild(tbl);
+  container.innerHTML = '';
+  container.appendChild(card);
+}
+
+// Default fallback
+register('#404',
+  () => ['Not Found', ''],
+  (area) => { area.innerHTML = '<div class="empty-state"><div class="icon">🔍</div>Page not found.</div>'; }
+);
+</script>
+</body>
+</html>

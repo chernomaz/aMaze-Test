@@ -5,7 +5,7 @@ from langchain_core.callbacks import BaseCallbackHandler
 from langchain_core.messages import AIMessage, SystemMessage, ToolMessage
 from langchain_core.tools import BaseTool, StructuredTool
 from langchain_core.language_models.chat_models import BaseChatModel
-
+from amaze.reporting import generate_html_report, open_report_if_possible
 
 def install(runtime):
     _patch_llm(runtime)
@@ -298,7 +298,7 @@ def _patch_llm(runtime):
                 runtime.run_assertions("llm", "output", result.content)
                 has_tc = bool(getattr(result, "tool_calls", None))
                 output_text = str(result.tool_calls) if has_tc else result.content
-                runtime.record_llm_output(input_text, output_text, indirect, has_tc)
+                runtime.record_llm_output(input_text, output_text, indirect, has_tc,True)
                 if not has_tc:
                     runtime.advance_finish_if_complete()
                 return result
@@ -317,16 +317,16 @@ def _patch_llm(runtime):
             runtime._reset_for_next_turn()
             raise
 
-        inp, out = _extract_usage_from_result(result)
-        runtime.add_token_usage(input_tokens=inp, output_tokens=out, model=model_name)
 
         if not indirect:
             runtime.run_assertions("llm", "output", result.content)
 
         has_tc = bool(getattr(result, "tool_calls", None))
         output_text = str(result.tool_calls) if has_tc else result.content
-        runtime.record_llm_output(input_text, output_text, indirect, has_tc)
+        runtime.record_llm_output(input_text, output_text, indirect, has_tc,False)
 
+        inp, out = _extract_usage_from_result(result)
+        runtime.add_token_usage(input_tokens=inp, output_tokens=out, model=model_name)
         # If the LLM returned a final answer (no tool_calls), the agent turn is done.
         # advance_finish_if_complete records 'finish' and resets for the next turn.
         # This also fires for unit tests where no Pregel chain wraps the calls.
@@ -360,7 +360,7 @@ def _patch_llm(runtime):
                 runtime.run_assertions("llm", "output", result.content)
                 has_tc = bool(getattr(result, "tool_calls", None))
                 output_text = str(result.tool_calls) if has_tc else result.content
-                runtime.record_llm_output(input_text, output_text, indirect, has_tc)
+                runtime.record_llm_output(input_text, output_text, indirect, has_tc,True)
                 if not has_tc:
                     runtime.advance_finish_if_complete()
                 return result
@@ -379,16 +379,16 @@ def _patch_llm(runtime):
             runtime._reset_for_next_turn()
             raise
 
-        inp, out = _extract_usage_from_result(result)
-        runtime.add_token_usage(input_tokens=inp, output_tokens=out, model=model_name)
+
 
         if not indirect:
             runtime.run_assertions("llm", "output", result.content)
 
         has_tc = bool(getattr(result, "tool_calls", None))
         output_text = str(result.tool_calls) if has_tc else result.content
-        runtime.record_llm_output(input_text, output_text, indirect, has_tc)
-
+        runtime.record_llm_output(input_text, output_text, indirect, has_tc,False)
+        inp, out = _extract_usage_from_result(result)
+        runtime.add_token_usage(input_tokens=inp, output_tokens=out, model=model_name)
         if not has_tc:
             runtime.advance_finish_if_complete()
 
@@ -421,7 +421,7 @@ def _patch_tools(runtime):
         if mock is not None:
             content = str(mock.output) if mock.output is not None else ""
             runtime.run_assertions(target, "output", content)
-            runtime.record_tool_output(tool_name, input_text, content)
+            runtime.record_tool_output(tool_name, input_text, content,True)
             return _wrap_tool_mock_output(mock.output, input_arg, tool_name)
 
         result = orig_invoke(self, input_arg, *args, **kwargs)
@@ -444,7 +444,7 @@ def _patch_tools(runtime):
         if mock is not None:
             content = str(mock.output) if mock.output is not None else ""
             runtime.run_assertions(target, "output", content)
-            runtime.record_tool_output(tool_name, input_text, content)
+            runtime.record_tool_output(tool_name, input_text, content,True)
             return _wrap_tool_mock_output(mock.output, input_arg, tool_name)
 
         result = await orig_ainvoke(self, input_arg, *args, **kwargs)

@@ -46,7 +46,8 @@ class RuntimeState:
         self.total_input_tokens = 0
         self.total_output_tokens = 0
         self.total_tokens = 0
-
+        self.call_log: list = []
+        self.last_edge_id = None
         # Graph mode state
         if isinstance(policy, GraphPolicy):
             self.current_node: str = policy.nodes[0]
@@ -155,15 +156,30 @@ class RuntimeState:
     # ------------------------------------------------------------------
 
     def add_token_usage(self, input_tokens: int = 0, output_tokens: int = 0, model: str = None):
-        self.total_input_tokens += input_tokens or 0
-        self.total_output_tokens += output_tokens or 0
-        self.total_tokens += (input_tokens or 0) + (output_tokens or 0)
+        input_tokens = input_tokens or 0
+        output_tokens = output_tokens or 0
+        total = input_tokens + output_tokens
+
+        self.total_input_tokens += input_tokens
+        self.total_output_tokens += output_tokens
+        self.total_tokens += total
+
+        for entry in reversed(self.call_log):
+            if entry.get("type") == "llm":
+                entry["input_tokens"] = input_tokens
+                entry["output_tokens"] = output_tokens
+                entry["total_tokens"] = total
+                entry["model"] = model
+                entry["ended_at"] = time.time()
+                break
+
         self.log("token_usage", {
             "model": model,
-            "input_tokens": input_tokens or 0,
-            "output_tokens": output_tokens or 0,
+            "input_tokens": input_tokens,
+            "output_tokens": output_tokens,
             "running_total": self.total_tokens,
         })
+
         if (self.policy.max_tokens is not None
                 and self.total_tokens > self.policy.max_tokens):
             raise PolicyViolation(
@@ -247,6 +263,7 @@ class RuntimeState:
         self.total_tokens = 0
         self.call_sequence = ["agent"]
         self.call_log = []
+        self.last_edge_id = None
         self.last_llm_mock = None
         self.last_tool_description = ""
 
@@ -294,7 +311,14 @@ class RuntimeState:
                 continue
             if assertion.check != check:
                 continue
+
+
+
             passed = _evaluate_assertion(assertion.operator, assertion.expected, value)
+            self.record_assertion(
+                description=assertion.description or f"{target}.{check}",
+                passed=passed
+            )
             if not passed:
                 label = assertion.description or f"{target}.{check}"
                 msg = (
@@ -308,33 +332,65 @@ class RuntimeState:
     # ------------------------------------------------------------------
     # Call output recording
     # ------------------------------------------------------------------
-
-    def record_llm_output(self, input_text: str, output_text: str,
-                          is_indirect: bool, has_tool_calls: bool):
-        """Record one LLM call (input + output) into the current turn's call_log."""
-        self.call_log.append({
+    def record_llm_output(self, input, output, has_tool_calls, indirect=False, mocked=False):
+        edge_id = str(uuid.uuid4())
+        now = time.time()
+        entry = {
+            "id": edge_id,
+            "parent_id": self.last_edge_id,
             "type": "llm",
-            "indirect": is_indirect,
-            "input": input_text,
-            "output": output_text,
+            "indirect": indirect,
+            "input": input,
+            "output": output,
+            "mocked": mocked,
             "has_tool_calls": has_tool_calls,
-        })
-        # Track the final answer: last LLM text response with no tool calls (direct or indirect)
-        if not has_tool_calls and output_text:
-            self.final_answer = output_text
+            "input_tokens": 0,
+            "output_tokens": 0,
+            "total_tokens": 0,
+            "status": "ok",
+            "started_at": now,
+            "ended_at": None,
+            "source": "mock" if mocked else "real"
+        }
+        self.call_log.append(entry)
+        self.last_edge_id = edge_id
+        if not has_tool_calls and output:
+            self.final_answer = output
 
-    def record_tool_output(self, tool_name: str, input_text: str, output: str):
-        """Record one tool call (input + output) into the current turn's call_log."""
-        self.call_log.append({
+    def record_tool_output(self, tool_name: str, input_text: str, output: str, mocked: bool = False):
+        edge_id = str(uuid.uuid4())
+        now = time.time()
+
+        entry = {
+            "id": edge_id,
+            "parent_id": self.last_edge_id,
             "type": "tool",
             "name": tool_name,
             "input": input_text,
             "output": output,
-        })
+            "mocked": mocked,
+            "status": "ok",
+            "started_at": now,
+            "ended_at": now,
+            "input_tokens": 0,
+            "output_tokens": 0,
+            "total_tokens": 0,
+            "source": "mock" if mocked else "real"
+        }
 
-    # ------------------------------------------------------------------
-    # Audit output
-    # ------------------------------------------------------------------
+        self.call_log.append(entry)
+        self.last_edge_id = edge_id
+
+
+    def record_assertion(self, description, passed):
+        self.call_log.append({
+            "id": str(uuid.uuid4()),
+            "type": "assertion",
+            "description": description,
+            "passed": passed,
+            "status": "ok" if passed else "failed",
+            "ts": time.time()
+        })
 
     def write(self):
         timestamp = time.strftime("%Y%m%d_%H%M%S")
@@ -358,14 +414,55 @@ class RuntimeState:
                 "total_tokens": self.total_tokens,
                 "call_log": list(self.call_log),
             })
-
+        self.audit_path = path
         with path.open("w", encoding="utf-8") as f:
             json.dump({
                 "trace_id": self.trace_id,
                 "agent_prompt": self.agent_prompt,
                 "final_answer": self.final_answer,
                 "passed": self.passed,
+                "policy": _serialize_policy(self.policy),
                 "turns": all_turns,
                 "assertion_failures": self.assertion_failures,
                 "events": self.events,
             }, f, indent=2, ensure_ascii=False)
+
+
+def _serialize_policy(policy) -> dict:
+    from amaze.policy import GraphPolicy, ControlPlanePolicy
+    if isinstance(policy, GraphPolicy):
+        return {
+            "mode": "graph",
+            "nodes": policy.nodes,
+            "edges": policy.edges,
+            "ignore_internal_llm": policy.ignore_internal_llm,
+            "max_tokens": policy.max_tokens,
+            "mocks": [_serialize_mock(m) for m in policy.mocks],
+            "assertions": [_serialize_assertion(a) for a in policy.assertions],
+        }
+    elif isinstance(policy, ControlPlanePolicy):
+        return {
+            "mode": "control_plane",
+            "allowed_tools": sorted(policy.allowed_tools),
+            "max_llm_calls": policy.max_llm_calls,
+            "max_tool_calls": policy.max_tool_calls,
+            "max_tool_calls_per_tool": policy.max_tool_calls_per_tool,
+            "max_tokens": policy.max_tokens,
+            "mocks": [_serialize_mock(m) for m in policy.mocks],
+            "assertions": [_serialize_assertion(a) for a in policy.assertions],
+        }
+    return {}
+
+
+def _serialize_mock(mock) -> dict:
+    return {k: v for k, v in vars(mock).items() if v is not None}
+
+
+def _serialize_assertion(assertion) -> dict:
+    return {
+        "target": assertion.target,
+        "check": assertion.check,
+        "operator": assertion.operator.value,
+        "expected": assertion.expected,
+        "description": assertion.description,
+    }

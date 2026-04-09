@@ -6,6 +6,7 @@ from pathlib import Path
 from amaze.instrumentation import install
 from amaze.policy import Policy
 from amaze.state import PolicyViolation, RuntimeState
+from amaze.reporting import generate_html_report, open_report_if_possible
 
 
 def main():
@@ -49,7 +50,10 @@ def main():
 
     runtime.passed = (len(all_failures) == 0 and script_error is None)
     runtime.write()
-
+    if runtime.audit_path is not None:
+        html_path = generate_html_report(runtime.audit_path)
+        print(f"[STATE] wrote html report: {html_path}", flush=True)
+        open_report_if_possible(html_path)
     _print_report(runtime, all_failures, script_error)
 
     if not runtime.passed:
