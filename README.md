@@ -477,6 +477,10 @@ See `examples/agents/langchain_annotated_agent.py` for a complete example.
 
 A web interface for managing the full testing workflow.
 
+<p align="center">
+  <img src="docs/assets/gui.png" width="900">
+</p>
+
 ### Start the server
 
 **Must be run from the project root** — the server resolves paths relative to the working directory.
