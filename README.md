@@ -46,25 +46,23 @@ Most tools show what happened.
 aMaze-Test verifies:
 
 Did the agent behave the way it was supposed to?
-
 Prevent tool misuse
 Lock execution paths
 Enforce token budgets
 Test deterministic scenarios with mocks
 Catch regressions automatically
+
 ---
 🧩 Core concepts
 Control-plane policy
 
 Define limits and boundaries:
-
 allowed tools
 max LLM/tool calls
 token budgets
 Graph policy
 
 Define exact execution flow:
-
 agent → llm → tool → finish
 Mocks & assertions
 mock LLM or tool responses
