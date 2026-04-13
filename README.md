@@ -29,45 +29,48 @@ no changes to your agent code
 no special test harness
 no custom wrappers
 
-📊 What you get
-<p align="center"> <img src="docs/assets/report-overview.png" alt="Policy-aware run report" width="900"> </p> <p align="center"> <img src="docs/assets/report-sequence.png" alt="Execution flow and tool sequence" width="900"> </p>
-✔ Full execution trace (agent → LLM → tools)
-✔ Policy validation (allowed tools, call limits, execution graph)
-✔ Token usage and counters
-✔ Mocked vs real calls clearly marked
-✔ Assertion failures with exact context
+## 📊 What you get
+<p align="center">
+  <img src="docs/assets/report-overview.png" width="900">
+</p>
 
-
----
-🧠 Why not just tracing or evals?
-
-Most tools show what happened.
-
-aMaze-Test verifies:
-
-Did the agent behave the way it was supposed to?
-Prevent tool misuse
-Lock execution paths
-Enforce token budgets
-Test deterministic scenarios with mocks
-Catch regressions automatically
+<p align="center">
+  <img src="docs/assets/report-sequence.png" width="900">
+</p>
+- Full execution trace (agent → LLM → tools)
+- Policy validation (allowed tools, call limits, execution graph)
+- Token usage and counters
+- Mocked vs real calls clearly marked
+- Assertion failures with exact context
 
 ---
-🧩 Core concepts
+##🧠 Why not just tracing or evals?
+
+- Most tools show what happened.
+
+- aMaze-Test verifies:
+- Did the agent behave the way it was supposed to?
+- Prevent tool misuse
+- Lock execution paths
+- Enforce token budgets
+- Test deterministic scenarios with mocks
+- Catch regressions automatically
+
+---
+##🧩 Core concepts
 Control-plane policy
+- Define limits and boundaries:
+- allowed tools
+- max LLM/tool calls
+- token budgets
+- Graph policy
 
-Define limits and boundaries:
-allowed tools
-max LLM/tool calls
-token budgets
-Graph policy
-
-Define exact execution flow:
-agent → llm → tool → finish
-Mocks & assertions
-mock LLM or tool responses
-assert inputs/outputs
-turn agent runs into deterministic tests
+## Define exact execution flow:
+- agent → llm → tool → finish
+- Mocks & assertions
+- mock LLM or tool responses
+- assert inputs/outputs
+- turn agent runs into deterministic tests
 
 ---
 
