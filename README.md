@@ -37,7 +37,7 @@ no custom wrappers
 <p align="center">
   <img src="docs/assets/report-sequence.png" width="900">
 </p>
-## 
+## And more ...
 - Full execution trace (agent → LLM → tools)
 - Policy validation (allowed tools, call limits, execution graph)
 - Token usage and counters
@@ -46,7 +46,7 @@ no custom wrappers
 
 
 ---
-##🧠 Why not just tracing or evals?
+## 🧠 Why not just tracing or evals?
 
 - Most tools show what happened.
 
@@ -59,7 +59,7 @@ no custom wrappers
 - Catch regressions automatically
 
 ---
-##🧩 Core concepts
+## 🧩 Core concepts
 Control-plane policy
 - Define limits and boundaries:
 - allowed tools
