@@ -158,9 +158,9 @@
       white-space: nowrap;
     }
     .badge-pass { background: rgba(31,191,117,0.15); color: var(--green); }
-    .badge-fail { background: rgba(224,82,82,0.15); color: var(--red); }
+    .badge-fail  { background: rgba(224,82,82,0.30); color: #ff5f5f; border: 1px solid rgba(224,82,82,0.55); font-weight: 800; }
     .badge-xfail { background: rgba(67,209,198,0.15); color: var(--cyan); }
-    .badge-xpass { background: rgba(242,185,75,0.15); color: var(--yellow); }
+    .badge-xpass { background: rgba(224,82,82,0.22); color: #ff7a7a; border: 1px solid rgba(224,82,82,0.45); font-weight: 700; }
     .badge-pending { background: rgba(93,169,255,0.15); color: var(--blue); }
     .badge-running { background: rgba(159,176,209,0.12); color: var(--muted); }
     .badge-none { background: rgba(159,176,209,0.08); color: var(--muted); }
@@ -460,6 +460,23 @@
     /* Tool picker modal */
     #tool-picker-overlay { position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:200;display:flex;align-items:center;justify-content:center; }
     #tool-picker-modal { background:var(--panel);border:1px solid var(--line);border-radius:16px;width:480px;max-height:70vh;overflow-y:auto;padding:20px; }
+    /* File browser modal */
+    #file-browser-overlay { position:fixed;inset:0;background:rgba(0,0,0,.65);z-index:300;display:flex;align-items:center;justify-content:center; }
+    #file-browser-modal { background:var(--panel);border:1px solid var(--line);border-radius:16px;width:560px;max-height:72vh;display:flex;flex-direction:column;padding:0;overflow:hidden; }
+    #fb-header { display:flex;align-items:center;gap:10px;padding:16px 18px;border-bottom:1px solid var(--line); }
+    #fb-header h3 { margin:0;font-size:14px;font-weight:700;flex:1; }
+    #fb-path { font-size:11px;color:var(--muted);font-family:ui-monospace,monospace;background:var(--panel-2);border:1px solid var(--line);border-radius:6px;padding:4px 8px;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap; }
+    #fb-list { flex:1;overflow-y:auto;padding:10px; }
+    .fb-entry { display:flex;align-items:center;gap:9px;padding:8px 10px;border-radius:8px;cursor:pointer;font-size:13px;transition:background .12s; }
+    .fb-entry:hover { background:rgba(255,255,255,.05); }
+    .fb-entry.fb-dir { color:var(--yellow); }
+    .fb-entry.fb-file { color:var(--text); }
+    .fb-entry.fb-file:hover { background:rgba(93,169,255,.1);color:var(--blue); }
+    .fb-entry .fb-icon { font-size:15px;width:18px;text-align:center; }
+    #fb-footer { padding:12px 18px;border-top:1px solid var(--line);display:flex;justify-content:flex-end;gap:8px; }
+    .file-path-row { display:flex;gap:8px;align-items:center; }
+    .file-path-row input { flex:1; }
+    .btn-browse { white-space:nowrap; }
     .tp-server { margin-bottom:14px; }
     .tp-server-name { font-size:11px;color:var(--muted);font-weight:700;text-transform:uppercase;letter-spacing:.08em;margin-bottom:6px; }
     .tp-tool-btn { display:flex;flex-direction:column;gap:2px;width:100%;text-align:left;padding:9px 12px;margin-bottom:4px;border-radius:8px;border:1px solid var(--line);background:var(--panel-2);cursor:pointer;transition:border-color .15s; }
@@ -706,7 +723,7 @@ register('#dashboard',
             <td><strong>${esc(tc.name)}</strong></td>
             <td><code>${esc(tc.policy_name || '—')}</code></td>
             <td>${esc(tc.agent_name || '—')}</td>
-            <td>${badge(tc.expected_outcome === 'negative' ? 'xfail' : 'pass')}</td>
+            <td>${badge(!tc.expected_pass ? 'xfail' : 'pass')}</td>
             <td><div class="actions">
               <button class="btn btn-success btn-sm" onclick="runTestFromDash('${esc(tc.name)}')">▶ Run</button>
             </div></td>
@@ -785,7 +802,7 @@ register('#run-test',
           <div style="display:grid;grid-template-columns:110px 1fr;gap:8px;font-size:13px">
             <span style="color:var(--muted)">Policy</span><span><code>${esc(tc.policy_name || '—')}</code></span>
             <span style="color:var(--muted)">Agent</span><span><code>${esc(tc.agent_name || '—')}</code></span>
-            <span style="color:var(--muted)">Expected</span><span>${badge(tc.expected_outcome === 'negative' ? 'xfail' : 'pass')}</span>
+            <span style="color:var(--muted)">Expected</span><span>${badge(!tc.expected_pass ? 'xfail' : 'pass')}</span>
             <span style="color:var(--muted)">Description</span><span>${esc(tc.description || '—')}</span>
             <span style="color:var(--muted)">Prompt</span><span style="white-space:pre-wrap;color:var(--muted)">${esc(tc.prompt || '—')}</span>
           </div>
@@ -1057,7 +1074,48 @@ function peSyncJson() {
   const edges = PE.edges.map(e=>[PE.nodes.find(n=>n.id===e.from)?.label, PE.nodes.find(n=>n.id===e.to)?.label].filter(Boolean));
   const ignEl = document.getElementById('pe-ignore-llm');
   const ignore_internal_llm = ignEl ? ignEl.dataset.val!=='false' : true;
-  el.textContent = JSON.stringify({mode:'graph',nodes,edges,ignore_internal_llm},null,2);
+  const obj = {mode:'graph',nodes,edges,ignore_internal_llm};
+
+  // Include mocks
+  const mockCards=[...document.querySelectorAll('#pe-mocks-list .item-card')];
+  if(mockCards.length){
+    obj.mocks=[];
+    mockCards.forEach(c=>{
+      const inputs=[...c.querySelectorAll('input')];
+      const target=inputs[0]?.value.trim(); if(!target) return;
+      const matchContains=inputs[1]?.value.trim();
+      const type=c.querySelector('select')?.value;
+      const m={target}; if(matchContains) m.match_contains=matchContains;
+      if(type==='tool_call'){
+        const tn=c.querySelector('.mock-tool-name')?.value.trim();
+        let args={}; try{args=JSON.parse(c.querySelector('.mock-tool-args')?.value||'{}')}catch{}
+        m.return_tool_call={tool:tn,args};
+      } else if(type==='ai_message'){
+        m.ai_message=c.querySelector('.mock-ai-val')?.value||'';
+      } else {
+        m.output=c.querySelector('.mock-out-val')?.value||'';
+      }
+      obj.mocks.push(m);
+    });
+  }
+
+  // Include assertions
+  const assertCards=[...document.querySelectorAll('#pe-assertions-list .item-card')];
+  if(assertCards.length){
+    obj.assertions=[];
+    assertCards.forEach(c=>{
+      const target=c.querySelector('.as-target')?.value.trim(); if(!target) return;
+      obj.assertions.push({
+        target,
+        check:c.querySelector('.as-check')?.value||'input',
+        operator:c.querySelector('.as-op')?.value||'contains',
+        expected:c.querySelector('.as-expected')?.value||'',
+        description:c.querySelector('.as-desc')?.value||'',
+      });
+    });
+  }
+
+  el.textContent = JSON.stringify(obj,null,2);
 }
 window.peSyncJson = peSyncJson;
 
@@ -1133,12 +1191,12 @@ window.addMock = function(data={}) {
   const output=typeof data.output==='string'?data.output:'';
   const card=document.createElement('div'); card.className='item-card';
   card.innerHTML=`
-    <span class="del-btn" onclick="this.closest('.item-card').remove()">×</span>
+    <span class="del-btn" onclick="this.closest('.item-card').remove();peSyncJson()">×</span>
     <div class="mini-grid-3" style="margin-bottom:10px">
-      <div class="field"><label>Target</label><input placeholder="llm or tool:name" value="${esc(data.target||'')}"/></div>
-      <div class="field"><label>Match Contains</label><input placeholder="(optional)" value="${esc(data.match_contains||'')}"/></div>
+      <div class="field"><label>Target</label><input placeholder="llm or tool:name" value="${esc(data.target||'')}" oninput="peSyncJson()"/></div>
+      <div class="field"><label>Match Contains</label><input placeholder="(optional)" value="${esc(data.match_contains||'')}" oninput="peSyncJson()"/></div>
       <div class="field"><label>Response Type</label>
-        <select onchange="toggleMockFields(this)">
+        <select onchange="toggleMockFields(this);peSyncJson()">
           <option value="tool_call" ${type==='tool_call'?'selected':''}>tool_call</option>
           <option value="ai_message" ${type==='ai_message'?'selected':''}>ai_message</option>
           <option value="output" ${type==='output'?'selected':''}>output text</option>
@@ -1146,14 +1204,14 @@ window.addMock = function(data={}) {
       </div>
     </div>
     <div class="mini-grid mock-tc-fields" ${type!=='tool_call'?'style="display:none"':''}>
-      <div class="field"><label>Tool Name</label><input class="mock-tool-name" placeholder="web_search" value="${esc(toolName)}"/></div>
-      <div class="field"><label>Tool Args (JSON)</label><input class="mock-tool-args" placeholder='{"query":"..."}' value="${esc(toolArgs)}"/></div>
+      <div class="field"><label>Tool Name</label><input class="mock-tool-name" placeholder="web_search" value="${esc(toolName)}" oninput="peSyncJson()"/></div>
+      <div class="field"><label>Tool Args (JSON)</label><input class="mock-tool-args" placeholder='{"query":"..."}' value="${esc(toolArgs)}" oninput="peSyncJson()"/></div>
     </div>
     <div class="field mock-ai-fields" ${type!=='ai_message'?'style="display:none"':''}>
-      <label>AI Message Text</label><input class="mock-ai-val" placeholder="The answer is..." value="${esc(aiMsg)}"/>
+      <label>AI Message Text</label><input class="mock-ai-val" placeholder="The answer is..." value="${esc(aiMsg)}" oninput="peSyncJson()"/>
     </div>
     <div class="field mock-out-fields" ${type!=='output'?'style="display:none"':''}>
-      <label>Output Text</label><input class="mock-out-val" placeholder="Tool result text..." value="${esc(output)}"/>
+      <label>Output Text</label><input class="mock-out-val" placeholder="Tool result text..." value="${esc(output)}" oninput="peSyncJson()"/>
     </div>`;
   list.appendChild(card);
 };
@@ -1169,9 +1227,9 @@ window.addAssertion = function(data={}) {
   const list=document.getElementById('pe-assertions-list'); if(!list) return;
   const card=document.createElement('div'); card.className='item-card';
   card.innerHTML=`
-    <span class="del-btn" onclick="this.closest('.item-card').remove()">×</span>
+    <span class="del-btn" onclick="this.closest('.item-card').remove();peSyncJson()">×</span>
     <div class="mini-grid-3">
-      <div class="field"><label>Target</label><input class="as-target" placeholder="llm or tool:name" value="${esc(data.target||'')}"/></div>
+      <div class="field"><label>Target</label><input class="as-target" placeholder="llm or tool:name" value="${esc(data.target||'')}" oninput="peSyncJson()"/></div>
       <div class="field"><label>Check</label>
         <select class="as-check"><option ${data.check==='input'||!data.check?'selected':''}>input</option><option ${data.check==='output'?'selected':''}>output</option></select>
       </div>
@@ -1260,6 +1318,7 @@ window.peImportJson = function(imported) {
   const assertList=document.getElementById('pe-assertions-list');
   if(assertList){ assertList.innerHTML=''; }
   (Array.isArray(imported.assertions)?imported.assertions:[]).forEach(a=>addAssertion(a));
+  peSyncJson();
 };
 
 register('#policy-editor',
@@ -1398,6 +1457,7 @@ register('#policy-editor',
     (Array.isArray(pj.mocks)?pj.mocks:[]).forEach(m=>addMock(m));
     // Populate assertions
     (Array.isArray(pj.assertions)?pj.assertions:[]).forEach(a=>addAssertion(a));
+    peSyncJson();
 
     // Init SVG canvas
     setTimeout(()=>{ if(isGraph) window.peInit(); }, 60);
@@ -1430,6 +1490,7 @@ register('#policy-editor',
 
       if (mode==='graph') {
         obj.nodes=PE.nodes.map(n=>n.label);
+        if (!obj.nodes.includes('finish')) { toast('Please add a "finish" node to the graph','error'); return; }
         obj.edges=PE.edges.map(e=>[PE.nodes.find(n=>n.id===e.from)?.label,PE.nodes.find(n=>n.id===e.to)?.label].filter(Boolean));
         const ignEl=document.getElementById('pe-ignore-llm');
         obj.ignore_internal_llm=ignEl?ignEl.dataset.val!=='false':true;
@@ -1485,9 +1546,8 @@ register('#policy-editor',
         });
       }
 
-      obj.audit_file='agent_audit.json';
       try {
-        const payload={name,description:desc,policy_json:obj};
+        const payload={name,description:desc,policy_json:JSON.stringify(obj)};
         if(editName){ await api(`/policies/${encodeURIComponent(editName)}`,{method:'PUT',body:payload}); toast('Policy updated','success'); }
         else { await api('/policies',{method:'POST',body:payload}); toast('Policy created','success'); }
         location.hash='#policies';
@@ -1524,7 +1584,7 @@ register('#test-cases',
         const tbody = el('tbody');
         for (const tc of testCases) {
           const tr = el('tr');
-          const expOutcome = tc.expected_outcome === 'negative' ? 'xfail' : 'pass';
+          const expOutcome = !tc.expected_pass ? 'xfail' : 'pass';
           tr.innerHTML = `
             <td><strong>${esc(tc.name)}</strong>${tc.description ? `<br><small style="color:var(--muted)">${esc(tc.description)}</small>` : ''}</td>
             <td><code>${esc(tc.policy_name || '—')}</code></td>
@@ -1628,8 +1688,8 @@ register('#test-case-editor',
           <div class="form-group">
             <label>Expected Outcome</label>
             <div class="radio-group">
-              <label class="radio-label"><input type="radio" name="tce-outcome" value="positive" ${!existing || existing.expected_outcome!=='negative'?'checked':''}> Positive (PASS)</label>
-              <label class="radio-label"><input type="radio" name="tce-outcome" value="negative" ${existing?.expected_outcome==='negative'?'checked':''}> Negative (XFAIL)</label>
+              <label class="radio-label"><input type="radio" name="tce-outcome" value="positive" ${!existing || existing.expected_pass !== 0 ? 'checked' : ''}> Positive (PASS)</label>
+              <label class="radio-label"><input type="radio" name="tce-outcome" value="negative" ${existing?.expected_pass === 0 ? 'checked' : ''}> Negative (XFAIL)</label>
             </div>
             <div class="xfail-banner" id="tce-xfail-banner">
               This test is expected to fail. The outcome will be reported as XFAIL if the agent fails as expected, or XPASS if it unexpectedly passes.
@@ -1650,7 +1710,7 @@ register('#test-case-editor',
       });
     });
     // Show banner if negative already selected
-    if (existing?.expected_outcome === 'negative') xfailBanner.style.display = 'block';
+    if (existing?.expected_pass === 0) xfailBanner.style.display = 'block';
 
     document.getElementById('tce-save').addEventListener('click', async () => {
       const name = document.getElementById('tce-name').value.trim();
@@ -1661,7 +1721,7 @@ register('#test-case-editor',
         policy_name: document.getElementById('tce-policy').value || null,
         agent_name: document.getElementById('tce-agent').value || null,
         prompt: document.getElementById('tce-prompt').value.trim(),
-        expected_outcome: document.querySelector('input[name="tce-outcome"]:checked')?.value === 'negative' ? 'negative' : 'positive',
+        expected_pass: document.querySelector('input[name="tce-outcome"]:checked')?.value !== 'negative',
       };
       try {
         if (editName) {
@@ -1855,6 +1915,65 @@ window.deleteAgent = async function(name) {
   } catch (e) { toast('Error: ' + e.message, 'error'); }
 };
 
+// ── File browser modal ───────────────────────────────────────
+function openFileBrowser(onSelect) {
+  const overlay = document.createElement('div');
+  overlay.id = 'file-browser-overlay';
+  overlay.innerHTML = `
+    <div id="file-browser-modal">
+      <div id="fb-header">
+        <h3>Select Agent File</h3>
+        <span id="fb-path">/ (project root)</span>
+      </div>
+      <div id="fb-list"></div>
+      <div id="fb-footer">
+        <button class="btn btn-ghost" id="fb-cancel">Cancel</button>
+      </div>
+    </div>`;
+  document.body.appendChild(overlay);
+
+  document.getElementById('fb-cancel').addEventListener('click', () => overlay.remove());
+  overlay.addEventListener('click', e => { if (e.target === overlay) overlay.remove(); });
+
+  async function loadDir(path) {
+    const list = document.getElementById('fb-list');
+    const pathLabel = document.getElementById('fb-path');
+    list.innerHTML = '<div style="padding:16px;color:var(--muted);font-size:13px">Loading…</div>';
+    const data = await api('/browse?' + new URLSearchParams({ path }));
+    pathLabel.textContent = data.current ? data.current : '/ (project root)';
+    list.innerHTML = '';
+
+    if (data.parent !== null && data.parent !== undefined) {
+      const up = document.createElement('div');
+      up.className = 'fb-entry fb-dir';
+      up.innerHTML = '<span class="fb-icon">⬆</span> ..';
+      up.addEventListener('click', () => loadDir(data.parent));
+      list.appendChild(up);
+    }
+
+    data.entries.forEach(e => {
+      const row = document.createElement('div');
+      row.className = 'fb-entry ' + (e.is_dir ? 'fb-dir' : 'fb-file');
+      row.innerHTML = `<span class="fb-icon">${e.is_dir ? '📁' : '🐍'}</span>${esc(e.name)}`;
+      if (e.is_dir) {
+        row.addEventListener('click', () => loadDir(e.path));
+      } else if (e.name.endsWith('.py')) {
+        row.addEventListener('click', () => { onSelect(e.path); overlay.remove(); });
+      } else {
+        row.style.opacity = '0.4';
+        row.style.cursor = 'default';
+      }
+      list.appendChild(row);
+    });
+
+    if (!list.children.length) {
+      list.innerHTML = '<div style="padding:16px;color:var(--muted);font-size:13px">Empty directory</div>';
+    }
+  }
+
+  loadDir('');
+}
+
 function showAgentForm(area, existing = null) {
   // Remove any old form
   const oldForm = area.querySelector('.agent-form-card');
@@ -1864,7 +1983,13 @@ function showAgentForm(area, existing = null) {
   formCard.innerHTML = `
     <h3>${existing ? 'Edit Agent: ' + esc(existing.name) : 'Add Agent'}</h3>
     <div class="form-group"><label>Name *</label><input class="form-control" id="af-name" value="${esc(existing?.name || '')}" placeholder="my-agent" ${existing ? 'readonly' : ''} /></div>
-    <div class="form-group"><label>File Path</label><input class="form-control" id="af-path" value="${esc(existing?.file_path || '')}" placeholder="/path/to/agent.py" /></div>
+    <div class="form-group">
+      <label>File Path</label>
+      <div class="file-path-row">
+        <input class="form-control" id="af-path" value="${esc(existing?.file_path || '')}" placeholder="examples/agents/my_agent.py" readonly />
+        <button class="btn btn-ghost btn-browse" id="af-browse">📁 Browse</button>
+      </div>
+    </div>
     <div class="form-group"><label>Description</label><textarea class="form-control" id="af-desc" rows="2">${esc(existing?.description || '')}</textarea></div>
     <div style="display:flex;gap:10px">
       <button class="btn btn-primary" id="af-save">Save</button>
@@ -1872,6 +1997,10 @@ function showAgentForm(area, existing = null) {
     </div>
   `;
   area.appendChild(formCard);
+
+  document.getElementById('af-browse').addEventListener('click', () => openFileBrowser(p => {
+    document.getElementById('af-path').value = p;
+  }));
 
   document.getElementById('af-save').addEventListener('click', async () => {
     const name = document.getElementById('af-name').value.trim();
@@ -2159,12 +2288,13 @@ register('#run-suite',
                   </div>
                   <div class="card">
                     <table>
-                      <thead><tr><th>Test Case</th><th>Outcome</th><th>Report</th></tr></thead>
+                      <thead><tr><th>Test Case</th><th>Expected</th><th>Outcome</th><th>Report</th></tr></thead>
                       <tbody>
                         ${testRuns.map(r => {
                           const fname = r.audit_html_path ? r.audit_html_path.split('/').pop() : null;
                           return `<tr>
                             <td><strong>${esc(r.test_case_name)}</strong></td>
+                            <td>${badge(r.expected_pass ? 'pass' : 'fail')}</td>
                             <td>${badge(r.outcome)}</td>
                             <td>${fname ? `<a href="/audit/${esc(fname)}" target="_blank" class="btn btn-ghost btn-sm">View Report</a>` : '<span style="color:var(--muted);font-size:12px">—</span>'}</td>
                           </tr>`;

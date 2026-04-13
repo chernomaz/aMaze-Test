@@ -1,0 +1,50 @@
+{
+  "mode": "graph",
+  "nodes": [
+    "agent",
+    "llm",
+    "tool:web_search",
+    "tool:dummy_email",
+    "finish"
+  ],
+  "edges": [
+    [
+      "agent",
+      "llm"
+    ],
+    [
+      "llm",
+      "tool:web_search"
+    ],
+    [
+      "tool:web_search",
+      "tool:dummy_email"
+    ],
+    [
+      "tool:dummy_email",
+      "finish"
+    ]
+  ],
+  "ignore_internal_llm": true,
+  "max_tokens": 4000,
+  "mocks": [
+    {
+      "target": "llm",
+      "match_contains": "email",
+      "return_tool_call": {
+        "tool": "web_search",
+        "args": {
+          "query": "latest company news"
+        }
+      }
+    },
+    {
+      "target": "tool:web_search",
+      "output": "Company news: Q1 results exceeded expectations. Board meeting scheduled for next week."
+    },
+    {
+      "target": "tool:dummy_email",
+      "output": "To: alice\nSubject: Q1 Report\n\nHi Alice, please find the Q1 report attached. Let me know if you have any questions."
+    }
+  ]
+}

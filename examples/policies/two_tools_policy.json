@@ -1,0 +1,13 @@
+{
+  "mode": "graph",
+  "nodes": ["agent", "llm", "tool:web_search", "tool:dummy_email", "finish"],
+  "edges": [
+    ["agent", "llm"],
+    ["llm", "tool:web_search"],
+    ["tool:web_search", "tool:dummy_email"],
+    ["tool:dummy_email", "finish"]
+  ],
+  "ignore_internal_llm": true,
+  "max_tokens": 4000
+  
+}

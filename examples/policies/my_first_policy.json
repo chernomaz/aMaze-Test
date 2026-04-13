@@ -1,0 +1,1 @@
+{"mode":"graph","nodes":["agent","llm","tool:file_read","tool:web_search","finish"],"edges":[["agent","llm"],["llm","tool:file_read"],["tool:file_read","tool:web_search"],["tool:web_search","finish"]],"ignore_internal_llm":true,"mocks":[{"target":"tool:file_read","output":"bitcoin"}]}

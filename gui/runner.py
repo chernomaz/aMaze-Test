@@ -22,7 +22,7 @@ async def run_test_async(
     """Execute a single test in a subprocess, stream output, update DB when done."""
     from gui.database import get_conn
 
-    policies_dir = ROOT / "policies"
+    policies_dir = ROOT / "examples" / "policies"
     policy_file = policies_dir / f"{policy_name}.json"
 
     # Write policy JSON from DB if the file doesn't exist on disk
@@ -38,9 +38,17 @@ async def run_test_async(
         agent_path = ROOT / agent_file
 
     env = os.environ.copy()
-    env["PYTHONPATH"] = str(ROOT)
+    env["PYTHONPATH"] = str(ROOT / "src") + os.pathsep + str(ROOT)
     env["PYTHONUNBUFFERED"] = "1"
     env["AGENT_PROMPT"] = prompt
+
+    # Pass expected_pass so the audit report can show it
+    from gui.database import get_conn as _get_conn
+    _conn = _get_conn()
+    _row = _conn.execute("SELECT expected_pass FROM test_runs WHERE id=?", (test_run_id,)).fetchone()
+    _conn.close()
+    if _row is not None:
+        env["EXPECTED_PASS"] = str(int(_row["expected_pass"]))
 
     cmd = [
         PYTHON, "-m", RUNNER_MODULE,
@@ -97,12 +105,14 @@ async def run_test_async(
 
 async def update_test_run_db(run_id: int, passed: bool, log: str, audit_json: str, audit_html: str):
     from gui.database import get_conn
-    outcome_raw = "pass" if passed else "fail"
     conn = get_conn()
+    row = conn.execute("SELECT expected_pass FROM test_runs WHERE id=?", (run_id,)).fetchone()
+    expected_pass = bool(row["expected_pass"]) if row else True
+    outcome = compute_outcome(passed, expected_pass)
     conn.execute(
         "UPDATE test_runs SET finished_at=datetime('now'), outcome=?, log_output=?, "
         "audit_json_path=?, audit_html_path=? WHERE id=?",
-        (outcome_raw, log, audit_json, audit_html, run_id)
+        (outcome, log, audit_json, audit_html, run_id)
     )
     conn.commit()
     conn.close()

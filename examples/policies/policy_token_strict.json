@@ -1,0 +1,26 @@
+{
+  "mode": "control_plane",
+  "allowed_tools": [
+    "pdf_search",
+    "web_search"
+  ],
+  "max_llm_calls": 2,
+  "max_tool_calls": 2,
+  "max_tokens": 800,
+  "mocks": [
+    {
+      "target": "llm",
+      "match_contains": "search",
+      "return_tool_call": {
+        "tool": "pdf_search",
+        "args": {
+          "query": "climate change impacts"
+        }
+      }
+    },
+    {
+      "target": "tool:pdf_search",
+      "output": "Climate change causes rising sea levels and extreme weather events. Source: report.pdf, page 12."
+    }
+  ]
+}

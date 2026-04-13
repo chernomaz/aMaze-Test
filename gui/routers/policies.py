@@ -6,7 +6,7 @@ from gui.models import PolicyIn
 
 router = APIRouter(prefix="/api/policies", tags=["policies"])
 
-POLICIES_DIR = Path(__file__).resolve().parent.parent.parent / "policies"
+POLICIES_DIR = Path(__file__).resolve().parent.parent.parent / "examples" / "policies"
 
 
 def _sync_from_disk():

@@ -1,0 +1,64 @@
+{
+  "mode": "graph",
+  "nodes": [
+    "agent",
+    "llm",
+    "tool:pdf_search",
+    "finish"
+  ],
+  "edges": [
+    [
+      "agent",
+      "llm"
+    ],
+    [
+      "llm",
+      "tool:pdf_search"
+    ],
+    [
+      "tool:pdf_search",
+      "finish"
+    ]
+  ],
+  "ignore_internal_llm": true,
+  "max_tokens": 5000,
+  "mocks": [
+    {
+      "target": "llm",
+      "match_contains": "pdf",
+      "return_tool_call": {
+        "tool": "pdf_search",
+        "args": {
+          "query": "data governance frameworks"
+        }
+      }
+    },
+    {
+      "target": "tool:pdf_search",
+      "output": "Data governance frameworks define policies for data quality and access. Source: framework.pdf, page 3."
+    }
+  ],
+  "assertions": [
+    {
+      "target": "tool:pdf_search",
+      "check": "output",
+      "operator": "contains",
+      "expected": "page",
+      "description": "PDF search result must include a page reference"
+    },
+    {
+      "target": "tool:pdf_search",
+      "check": "output",
+      "operator": "matches_regex",
+      "expected": "Source: .+\\.pdf",
+      "description": "PDF search result must include a source file reference"
+    },
+    {
+      "target": "tool:pdf_search",
+      "check": "input",
+      "operator": "equals",
+      "expected": "data governance frameworks",
+      "description": "PDF search query must exactly match expected topic"
+    }
+  ]
+}

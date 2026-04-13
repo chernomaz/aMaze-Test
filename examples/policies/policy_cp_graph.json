@@ -1,0 +1,24 @@
+{
+  "mode": "control_plane",
+  "allowed_tools": [
+    "web_search",
+    "dummy_email"
+  ],
+  "max_llm_calls": 3,
+  "max_tool_calls": 2,
+  "max_tool_calls_per_tool": {
+    "web_search": 1,
+    "dummy_email": 1
+  },
+  "max_tokens": 6000,
+  "mocks": [
+    {
+      "target": "tool:web_search",
+      "output": "The latest company news: Q1 revenue was $4.50M, up 12% year-over-year."
+    },
+    {
+      "target": "tool:dummy_email",
+      "output": "To: bob\nSubject: Meeting Tomorrow\n\nHi Bob, just a reminder that we have a team meeting tomorrow at 10am."
+    }
+  ]
+}

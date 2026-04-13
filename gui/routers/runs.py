@@ -5,7 +5,7 @@ from fastapi import APIRouter, HTTPException
 from fastapi.responses import StreamingResponse
 from gui.database import get_conn
 from gui.models import RunTestIn, RunSuiteIn
-from gui.runner import run_test_async, update_test_run_db, compute_outcome
+from gui.runner import run_test_async, compute_outcome
 
 router = APIRouter(prefix="/api/runs", tags=["runs"])
 
@@ -32,25 +32,7 @@ async def start_single_run(body: RunTestIn):
     conn.commit()
     conn.close()
 
-    asyncio.create_task(_run_single(run_id, tc["policy_name"], tc["agent_name"],
-                                    tc["prompt"], tc["expected_pass"]))
     return {"run_id": run_id}
-
-
-async def _run_single(run_id, policy_name, agent_name, prompt, expected_pass):
-    conn = get_conn()
-    agent_row = conn.execute("SELECT file_path FROM agents WHERE name=?", (agent_name,)).fetchone()
-    conn.close()
-    agent_file = agent_row["file_path"] if agent_row else agent_name
-
-    passed, log, audit_json, audit_html = await run_test_async(
-        policy_name, agent_file, prompt, run_id, update_test_run_db
-    )
-    outcome = compute_outcome(passed, bool(expected_pass))
-    conn = get_conn()
-    conn.execute("UPDATE test_runs SET outcome=? WHERE id=?", (outcome, run_id))
-    conn.commit()
-    conn.close()
 
 
 @router.get("/test/{run_id}/stream")
@@ -146,48 +128,7 @@ async def start_suite_run(body: RunSuiteIn):
     conn.commit()
     conn.close()
 
-    asyncio.create_task(_run_suite(suite_run_id, [dict(tc) for tc in cases]))
     return {"suite_run_id": suite_run_id}
-
-
-async def _run_suite(suite_run_id: int, cases: list[dict]):
-    counts = {"pass": 0, "fail": 0, "xfail": 0, "xpass": 0}
-
-    for tc in cases:
-        conn = get_conn()
-        agent_row = conn.execute(
-            "SELECT file_path FROM agents WHERE name=?", (tc["agent_name"],)
-        ).fetchone()
-        agent_file = agent_row["file_path"] if agent_row else tc["agent_name"]
-
-        cur = conn.execute(
-            "INSERT INTO test_runs (suite_run_id,test_case_name,policy_name,agent_name,"
-            "prompt,expected_pass) VALUES (?,?,?,?,?,?)",
-            (suite_run_id, tc["name"], tc["policy_name"], tc["agent_name"],
-             tc["prompt"], tc["expected_pass"])
-        )
-        run_id = cur.lastrowid
-        conn.commit()
-        conn.close()
-
-        passed, log, audit_json, audit_html = await run_test_async(
-            tc["policy_name"], agent_file, tc["prompt"], run_id, update_test_run_db
-        )
-        outcome = compute_outcome(passed, bool(tc["expected_pass"]))
-        conn = get_conn()
-        conn.execute("UPDATE test_runs SET outcome=? WHERE id=?", (outcome, run_id))
-        conn.commit()
-        conn.close()
-        counts[outcome] = counts.get(outcome, 0) + 1
-
-    conn = get_conn()
-    conn.execute(
-        "UPDATE suite_runs SET finished_at=datetime('now'),status='done',"
-        "pass_count=?,fail_count=?,xfail_count=?,xpass_count=? WHERE id=?",
-        (counts["pass"], counts["fail"], counts["xfail"], counts.get("xpass", 0), suite_run_id)
-    )
-    conn.commit()
-    conn.close()
 
 
 @router.get("/suite/{suite_run_id}/stream")

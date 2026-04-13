@@ -1,0 +1,40 @@
+{
+  "mode": "control_plane",
+  "allowed_tools": [
+    "pdf_search"
+  ],
+  "max_llm_calls": 2,
+  "max_tool_calls": 1,
+  "mocks": [
+    {
+      "target": "llm",
+      "match_contains": "humanitarian",
+      "return_tool_call": {
+        "tool": "pdf_search",
+        "args": {
+          "query": "Scenarios in humanitarian data management"
+        }
+      }
+    },
+    {
+      "target": "tool:pdf_search",
+      "output": "Humanitarian data management involves coordination across agencies. Source: guidelines.pdf, page 5."
+    }
+  ],
+  "assertions": [
+    {
+      "target": "llm",
+      "check": "input",
+      "operator": "contains",
+      "expected": "humanitarian",
+      "description": "LLM input must contain the topic keyword 'humanitarian'"
+    },
+    {
+      "target": "tool:pdf_search",
+      "check": "input",
+      "operator": "starts_with",
+      "expected": "Scenarios",
+      "description": "PDF search query must start with 'Scenarios'"
+    }
+  ]
+}

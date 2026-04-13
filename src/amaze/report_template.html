@@ -1,0 +1,469 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>aMaze Audit Report</title>
+  <style>
+    :root {
+      --bg: #0b1020;
+      --panel: #121a2b;
+      --panel-2: #18233a;
+      --text: #e8eefc;
+      --muted: #9fb0d1;
+      --line: #2b3a59;
+      --green: #1fbf75;
+      --yellow: #f2b94b;
+      --red: #e05252;
+      --blue: #5da9ff;
+      --violet: #a97cff;
+      --cyan: #43d1c6;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: Inter, "Segoe UI", Arial, sans-serif;
+      background: linear-gradient(180deg, #09101d 0%, #0d1426 100%);
+      color: var(--text);
+      min-height: 100vh;
+    }
+    .container { max-width: 1600px; margin: 0 auto; padding: 24px; }
+
+    /* ── Top bar ── */
+    .topbar { display: flex; justify-content: space-between; align-items: center; gap: 16px; margin-bottom: 20px; }
+    .title { font-size: 28px; font-weight: 800; letter-spacing: 0.2px; }
+    .subtitle { color: var(--muted); font-size: 14px; margin-top: 4px; }
+    .chips { display: flex; gap: 8px; flex-wrap: wrap; }
+    .chip { border: 1px solid var(--line); background: rgba(255,255,255,0.03); color: var(--muted); padding: 8px 10px; border-radius: 999px; font-size: 12px; }
+
+    /* ── Cards / Sections ── */
+    .card, .section {
+      background: linear-gradient(180deg, var(--panel) 0%, #0f1627 100%);
+      border: 1px solid var(--line); border-radius: 18px; padding: 18px;
+      box-shadow: 0 10px 30px rgba(0,0,0,0.22); margin-bottom: 18px;
+    }
+    .card h3, .section h3 {
+      margin: 0 0 12px 0; font-size: 13px; color: var(--muted);
+      font-weight: 700; text-transform: uppercase; letter-spacing: 0.09em;
+    }
+
+    /* ── Summary 3-col grid ── */
+    .grid-summary { display: grid; grid-template-columns: 2fr 1fr 1.4fr; gap: 14px; margin-bottom: 18px; align-items: start; }
+
+    .kvs { display: grid; grid-template-columns: 150px 1fr; row-gap: 9px; column-gap: 12px; font-size: 14px; }
+    .kvs .k { color: var(--muted); }
+
+    .prompt-label { color: var(--muted); font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .07em; margin: 14px 0 5px 0; }
+    .codeblock { background: var(--panel-2); border: 1px solid var(--line); border-radius: 10px; padding: 10px; overflow: auto; max-height: 100px; }
+    pre { margin: 0; white-space: pre-wrap; word-break: break-word; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 12px; line-height: 1.45; color: #d7e2ff; }
+
+    /* ── Metrics mini-grid (3 cols × 2 rows) ── */
+    .mini-metrics { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px; margin-top: 4px; }
+    .mini-metric { background: var(--panel-2); border: 1px solid var(--line); border-radius: 12px; padding: 12px; }
+    .mini-metric .mlabel { color: var(--muted); font-size: 11px; text-transform: uppercase; letter-spacing: 0.07em; font-weight: 700; }
+    .mini-metric .mval { font-size: 24px; font-weight: 800; margin-top: 6px; }
+    .mval.ok  { color: var(--green); }
+    .mval.warn { color: var(--yellow); }
+    .mval.fail { color: var(--red); }
+
+    /* ── Policy ── */
+    .policy-box {
+      background: var(--panel-2); border: 1px solid var(--line); border-radius: 12px;
+      padding: 12px; color: #d7e2ff; white-space: pre-wrap;
+      font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+      font-size: 12px; line-height: 1.5; max-height: 340px; overflow: auto;
+    }
+
+    /* ── Sequence diagram ── */
+    #diagram { background: var(--panel-2); border: 1px solid var(--line); border-radius: 12px; padding: 10px; overflow-x: auto; min-height: 180px; margin-top: 10px; }
+    #diagram svg .seq-step { cursor: pointer; }
+    .legend { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 12px; }
+    .legend span { display: inline-flex; align-items: center; gap: 7px; color: var(--muted); font-size: 12px; }
+    .dot { width: 11px; height: 11px; border-radius: 999px; display: inline-block; }
+
+    /* ── Tables ── */
+    .scroll-x { overflow-x: auto; }
+    table { width: 100%; border-collapse: collapse; font-size: 13px; }
+    th, td { border-bottom: 1px solid var(--line); padding: 9px 8px; vertical-align: top; text-align: left; }
+    th { color: var(--muted); font-size: 11px; text-transform: uppercase; letter-spacing: .06em; background: var(--panel-2); white-space: nowrap; }
+    tr:hover td { background: rgba(255,255,255,0.025); }
+    tr.mock-row  { background: rgba(169,124,255,0.07); }
+    tr.fail-row  { background: rgba(224,82,82,0.09); }
+    tr.assert-row { background: rgba(67,209,198,0.07); }
+    tr.highlighted td { background: rgba(93,169,255,0.18) !important; outline: 2px solid var(--blue); }
+    .muted { color: var(--muted); }
+    .ts-col { font-size: 11px; color: var(--muted); white-space: nowrap; font-family: ui-monospace, monospace; }
+
+    /* ── Badges ── */
+    .badge { display: inline-block; padding: 3px 8px; border-radius: 999px; font-size: 11px; font-weight: 700; }
+    .badge-llm    { background: rgba(93,169,255,.16);  color: #9fd0ff; }
+    .badge-tool   { background: rgba(93,169,255,.16);  color: #9fd0ff; }
+    .badge-mock   { background: rgba(169,124,255,.16); color: #cab0ff; }
+    .badge-assert { background: rgba(67,209,198,.18);  color: #8ef1e6; }
+    .badge-fail   { background: rgba(224,82,82,.16);   color: #ffb3b3; }
+    .badge-ok     { background: rgba(31,191,117,.12);  color: #6de8ae; }
+    .badge-passed { background: rgba(31,191,117,.15);  color: #5ce8a4; font-size: 13px; padding: 4px 12px; }
+    .badge-user   { background: rgba(242,185,75,.14);  color: #f5cc6e; }
+
+    /* ── Full-content code cell ── */
+    .code-full {
+      font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+      background: var(--panel-2); border: 1px solid var(--line); border-radius: 8px;
+      padding: 6px 8px; font-size: 11px; min-width: 180px; max-width: 420px;
+      max-height: 130px; overflow: auto; white-space: pre-wrap;
+      word-break: break-word; color: #dce6ff;
+    }
+
+    @media (max-width: 1100px) {
+      .grid-summary { grid-template-columns: 1fr 1fr; }
+      .mini-metrics { grid-template-columns: 1fr 1fr; }
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div id="root">Loading report…</div>
+  </div>
+
+  <!-- Report data injected by reporting.py -->
+  <script id="report-data" type="application/json">%%REPORT_JSON%%</script>
+
+  <script>
+  (function () {
+    "use strict";
+
+    // ── Utilities ────────────────────────────────────────────────────
+    function esc(v) {
+      if (v == null) return "";
+      return String(v)
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;")
+        .replace(/'/g, "&#x27;");
+    }
+
+    function fmtTs(ts) {
+      if (ts == null) return "";
+      const d = new Date(ts * 1000);
+      const pad = n => String(n).padStart(2, "0");
+      const ms = String(d.getMilliseconds()).padStart(3, "0");
+      return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())} ` +
+             `${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}.${ms}`;
+    }
+
+    function badge(cls, text) {
+      return `<span class="badge badge-${cls}">${esc(text)}</span>`;
+    }
+
+    // ── Parse data ───────────────────────────────────────────────────
+    const report = JSON.parse(document.getElementById("report-data").textContent);
+    const s = report.summary;
+    const policy = report.policy || {};
+    const edges = report.edges || [];
+    const steps = report.sequence_steps || [];
+    const violations = report.violations || [];
+    const toolStats = report.tool_stats || [];
+
+    // ── Policy: render as formatted JSON ────────────────────────────
+    function formatPolicy(p) {
+      return JSON.stringify(p, null, 2);
+    }
+
+    // ── Highlight edge row ───────────────────────────────────────────
+    function highlightEdge(edgeId) {
+      document.querySelectorAll("#edges-tbody tr.highlighted").forEach(function(r) {
+        r.classList.remove("highlighted");
+      });
+      if (!edgeId) return;
+      const row = document.getElementById("edge-" + edgeId);
+      if (row) {
+        row.classList.add("highlighted");
+        row.scrollIntoView({ behavior: "smooth", block: "center" });
+      }
+    }
+
+    // ── Sequence diagram ─────────────────────────────────────────────
+    function renderDiagram(steps) {
+      const allSteps = [{ from: "user", to: "agent", label: "user_prompt", mocked: false, status: "ok", edge_id: "__user_agent__" }]
+        .concat(steps);
+
+      const lanes = [];
+      function addLane(n) { if (!lanes.includes(n)) lanes.push(n); }
+      addLane("user"); addLane("agent");
+      allSteps.forEach(function(s) { addLane(s.from); addLane(s.to); });
+
+      const padL = 24, padR = 24;
+      // laneW must fit the widest lane label (~8px/char at 12px bold) + margins
+      const maxLabelLen = lanes.reduce(function(m, n) { return Math.max(m, n.length); }, 4);
+      const minLaneW = Math.max(160, maxLabelLen * 9 + 40);
+      const laneW = Math.max(minLaneW, Math.floor((Math.max(1000, minLaneW * lanes.length) - padL - padR) / Math.max(1, lanes.length - 1)));
+      const totalW = padL + padR + laneW * (lanes.length - 1);
+      const rowH = 56;
+      const headerH = 46;
+      const totalH = headerH + allSteps.length * rowH + 20;
+
+      function laneX(n) { return padL + lanes.indexOf(n) * laneW; }
+
+      let svg = `<svg width="${totalW}" height="${totalH}" viewBox="0 0 ${totalW} ${totalH}" xmlns="http://www.w3.org/2000/svg">
+        <defs>
+          <marker id="mB" markerWidth="8" markerHeight="8" refX="7" refY="3" orient="auto"><path d="M0,0 L0,6 L8,3 z" fill="#5da9ff"/></marker>
+          <marker id="mP" markerWidth="8" markerHeight="8" refX="7" refY="3" orient="auto"><path d="M0,0 L0,6 L8,3 z" fill="#a97cff"/></marker>
+          <marker id="mC" markerWidth="8" markerHeight="8" refX="7" refY="3" orient="auto"><path d="M0,0 L0,6 L8,3 z" fill="#43d1c6"/></marker>
+          <marker id="mR" markerWidth="8" markerHeight="8" refX="7" refY="3" orient="auto"><path d="M0,0 L0,6 L8,3 z" fill="#e05252"/></marker>
+        </defs>`;
+
+      // Lane headers + lifelines (box sized to label)
+      lanes.forEach(function(name) {
+        const x = laneX(name);
+        const bw = Math.max(80, name.length * 8 + 24);  // box width fitted to label
+        svg += `<rect x="${x - bw/2}" y="4" width="${bw}" height="28" rx="8" fill="#18233a" stroke="#2b3a59" stroke-width="1"/>`;
+        svg += `<text x="${x}" y="23" fill="#e8eefc" font-size="12" font-weight="700" text-anchor="middle">${esc(name)}</text>`;
+        svg += `<line x1="${x}" y1="34" x2="${x}" y2="${totalH - 8}" stroke="#2b3a59" stroke-dasharray="5 4" stroke-width="1.5"/>`;
+      });
+
+      // Arrows
+      allSteps.forEach(function(step, idx) {
+        const y = headerH + idx * rowH + Math.round(rowH * 0.5);
+        const x1 = laneX(step.from), x2 = laneX(step.to);
+        let color = "#5da9ff", markerId = "mB";
+        if (step.status === "failed")                      { color = "#e05252"; markerId = "mR"; }
+        else if (step.mocked)                              { color = "#a97cff"; markerId = "mP"; }
+        else if ((step.label || "").startsWith("assert"))  { color = "#43d1c6"; markerId = "mC"; }
+
+        const edgeId = step.edge_id || "";
+        const isSelf = (x1 === x2);
+        const dataAttr = edgeId ? ` data-edge-id="${esc(edgeId)}"` : "";
+
+        svg += `<g class="seq-step"${dataAttr}>`;
+        if (isSelf) {
+          svg += `<path d="M ${x1} ${y-10} C ${x1+60} ${y-10}, ${x1+60} ${y+10}, ${x1} ${y+10}"
+                        fill="none" stroke="${color}" stroke-width="2" marker-end="url(#${markerId})"/>`;
+        } else {
+          svg += `<line x1="${x1}" y1="${y}" x2="${x2}" y2="${y}" stroke="${color}" stroke-width="2.2" marker-end="url(#${markerId})"/>`;
+        }
+        // Invisible hit area
+        svg += `<rect x="${Math.min(x1,x2)-4}" y="${y-18}" width="${Math.abs(x2-x1)+8}" height="36" fill="transparent"/>`;
+        // Label
+        const lx = Math.min(x1,x2) + Math.abs(x2-x1)*0.08 + (isSelf ? 14 : 0);
+        svg += `<text x="${lx}" y="${y-10}" fill="${color}" font-size="11" font-family="ui-monospace,monospace">${esc(step.label || "")}</text>`;
+        svg += `</g>`;
+      });
+
+      svg += "</svg>";
+
+      const diagram = document.getElementById("diagram");
+      diagram.innerHTML = svg;
+
+      diagram.querySelectorAll(".seq-step[data-edge-id]").forEach(function(g) {
+        g.addEventListener("click", function() { highlightEdge(g.dataset.edgeId); });
+      });
+    }
+
+    // ── Build edge rows ──────────────────────────────────────────────
+    function buildEdgeRows(edges) {
+      if (!edges.length) return '<tr><td colspan="15" class="muted">No edges</td></tr>';
+      return edges.map(function(e) {
+        const cls = [
+          e.mocked ? "mock-row" : "",
+          e.status === "failed" ? "fail-row" : "",
+          e.type === "assertion" ? "assert-row" : ""
+        ].filter(Boolean).join(" ");
+
+        const kind = (e.type || "").toUpperCase();
+        const name = e.name || e.description || "";
+        const source = e.source || (e.mocked ? "mock" : "real");
+        const dur = e.duration_ms != null ? e.duration_ms : "";
+        const badgeCls = e.type === "user" ? "user" : (e.type === "assertion" ? "assert" : (e.mocked ? "mock" : (e.type || "tool")));
+        const statusCls = e.status === "failed" ? "fail" : "ok";
+        const tsDisplay = e.started_at ? fmtTs(e.started_at) : "";
+
+        return `<tr id="edge-${esc(e.id || "")}" class="${cls}">
+          <td>${esc(e.turn)}</td>
+          <td>${esc(e.index)}</td>
+          <td class="ts-col">${esc(tsDisplay)}</td>
+          <td>${badge(badgeCls, kind)}</td>
+          <td>${esc(name)}</td>
+          <td>${e.indirect ? badge("mock", "indirect") : ""}</td>
+          <td>${esc(source)}</td>
+          <td>${esc(e.model || "")}</td>
+          <td>${esc(dur)}</td>
+          <td>${esc(e.input_tokens || 0)}</td>
+          <td>${esc(e.output_tokens || 0)}</td>
+          <td>${esc(e.total_tokens || 0)}</td>
+          <td>${badge(statusCls, e.status || "ok")}</td>
+          <td><div class="code-full">${esc(e.input)}</div></td>
+          <td><div class="code-full">${esc(e.output)}</div></td>
+        </tr>`;
+      }).join("");
+    }
+
+    // ── Build violation rows ─────────────────────────────────────────
+    function buildViolationRows(violations) {
+      if (!violations.length) return '<tr><td colspan="6" class="muted">No violations detected</td></tr>';
+      return violations.map(function(v) {
+        return `<tr class="fail-row">
+          <td>${esc(v.kind)}</td>
+          <td>${esc(v.name)}</td>
+          <td>${esc(v.turn)}</td>
+          <td>${esc(v.index)}</td>
+          <td>${esc(v.status)}</td>
+          <td><div class="code-full">${esc(typeof v.details === "object" ? JSON.stringify(v.details) : v.details)}</div></td>
+        </tr>`;
+      }).join("");
+    }
+
+    // ── Build tool stat rows ─────────────────────────────────────────
+    function buildToolRows(toolStats) {
+      if (!toolStats.length) return '<tr><td colspan="4" class="muted">No tool calls</td></tr>';
+      return toolStats.map(function(t) {
+        return `<tr>
+          <td>${esc(t.name)}</td>
+          <td>${esc(t.calls)}</td>
+          <td>${esc(t.mocked_calls)}</td>
+          <td>${esc(t.failed_calls)}</td>
+        </tr>`;
+      }).join("");
+    }
+
+    // ── Compute display values ───────────────────────────────────────
+    const passed = s.passed;
+    const resultLabel = passed ? "PASSED" : "FAILED";
+    const traceShort = (s.trace_id || "").slice(0, 8);
+
+    const assertTotal   = s.assertion_calls || 0;
+    const assertFailed  = s.assertion_failures || 0;
+    const assertPassed  = assertTotal - assertFailed;
+    const assertDisplay = assertTotal ? `${assertPassed} / ${assertTotal}` : "—";
+    const assertCls     = assertFailed ? "fail" : "ok";
+    const tokenCls      = (s.total_tokens > 0 && s.violations_count) ? "warn" : "ok";
+    const mockCls       = s.mock_calls > 0 ? "warn" : "ok";
+    const failedCls     = s.failed_components ? "fail" : "ok";
+    const policyText    = esc(formatPolicy(policy));
+
+    // ── Render full page ─────────────────────────────────────────────
+    document.getElementById("root").innerHTML = `
+      <!-- Top bar -->
+      <div class="topbar">
+        <div>
+          <div class="title">aMaze Test Audit Report</div>
+          <div class="subtitle">Behavioral test · trace_id: ${esc(s.trace_id)}</div>
+        </div>
+        <div class="chips">
+          <div class="chip">Turns: ${esc(s.turn_count)}</div>
+          <div class="chip">Duration: ${esc(s.run_duration_ms)} ms</div>
+          <div class="chip">${passed ? "✓ PASSED" : "✗ FAILED"}</div>
+        </div>
+      </div>
+
+      <!-- Summary 3-col grid -->
+      <div class="grid-summary">
+
+        <!-- Test Run Summary (incl. prompt + final answer) -->
+        <div class="card">
+          <h3>Test Run Summary</h3>
+          <div class="kvs">
+            <div class="k">Trace ID</div><div>${esc(traceShort)}…</div>
+            <div class="k">Result</div><div>${badge(passed ? "passed" : "fail", resultLabel)}</div>
+            ${s.expected_pass !== null && s.expected_pass !== undefined ? `<div class="k">Expected</div><div>${badge(s.expected_pass ? "passed" : "fail", s.expected_pass ? "pass" : "fail")}</div>` : ""}
+            <div class="k">Turns</div><div>${esc(s.turn_count)}</div>
+            <div class="k">Violations</div><div>${esc(s.violations_count)}</div>
+            <div class="k">Mock Calls</div><div>${esc(s.mock_calls)}</div>
+            <div class="k">Unique Tools</div><div>${esc(s.unique_tools)}</div>
+            <div class="k">Indirect LLM</div><div>${esc(s.indirect_llm_calls)}</div>
+            <div class="k">Tokens In / Out</div><div>${esc(s.total_input_tokens)} / ${esc(s.total_output_tokens)}</div>
+          </div>
+          <div class="prompt-label">Agent Prompt</div>
+          <div class="codeblock"><pre>${esc(s.agent_prompt) || '<em style="color:var(--muted)">—</em>'}</pre></div>
+          <div class="prompt-label">${!passed && violations.length ? "Failure Details" : "Final Answer"}</div>
+          <div class="codeblock"><pre>${(function() {
+            if (!passed && violations.length) {
+              return esc(violations.map(function(v) {
+                var d = v.details;
+                if (d && typeof d === "object") d = d.message || d.details || JSON.stringify(d);
+                return d || "";
+              }).filter(Boolean).join("\n\n")) || '<em style="color:var(--muted)">—</em>';
+            }
+            return esc(s.final_answer) || '<em style="color:var(--muted)">—</em>';
+          })()}</pre></div>
+        </div>
+
+        <!-- Metrics (6 mini cards + tool breakdown) -->
+        <div class="card">
+          <h3>Metrics</h3>
+          <div class="mini-metrics">
+            <div class="mini-metric"><div class="mlabel">Total Tokens</div><div class="mval ${tokenCls}">${esc(s.total_tokens)}</div></div>
+            <div class="mini-metric"><div class="mlabel">LLM Calls</div><div class="mval ok">${esc(s.llm_calls)}</div></div>
+            <div class="mini-metric"><div class="mlabel">Tool Calls</div><div class="mval ok">${esc(s.tool_calls)}</div></div>
+            <div class="mini-metric"><div class="mlabel">Mock Calls</div><div class="mval ${mockCls}">${esc(s.mock_calls)}</div></div>
+            <div class="mini-metric"><div class="mlabel">Assertions</div><div class="mval ${assertCls}">${assertDisplay}</div></div>
+            <div class="mini-metric"><div class="mlabel">Failed</div><div class="mval ${failedCls}">${esc(s.failed_components)}</div></div>
+          </div>
+          ${toolStats.length ? `
+          <div class="prompt-label" style="margin-top:14px">Tool Breakdown</div>
+          <table style="margin-top:6px;font-size:12px">
+            <thead><tr><th>Tool</th><th>Calls</th><th>Mocked</th><th>Failed</th></tr></thead>
+            <tbody>${buildToolRows(toolStats)}</tbody>
+          </table>` : ""}
+        </div>
+
+        <!-- Policy -->
+        <div class="card">
+          <h3>Policy</h3>
+          <div class="policy-box">${policyText}</div>
+        </div>
+      </div>
+
+      <!-- Conversation Sequence Diagram -->
+      <div class="card">
+        <h3>Conversation Sequence Diagram
+          <span style="font-size:11px;color:var(--muted);font-weight:400;text-transform:none;letter-spacing:0">
+            (click an arrow to highlight the edge below)
+          </span>
+        </h3>
+        <div id="diagram"></div>
+        <div class="legend">
+          <span><i class="dot" style="background:var(--blue);"></i> real</span>
+          <span><i class="dot" style="background:var(--violet);"></i> mocked</span>
+          <span><i class="dot" style="background:var(--cyan);"></i> assertion</span>
+          <span><i class="dot" style="background:var(--red);"></i> failed</span>
+        </div>
+      </div>
+
+      <!-- Execution Edges -->
+      <div class="section">
+        <h3>Execution Edges</h3>
+        <div class="scroll-x">
+          <table>
+            <thead>
+              <tr>
+                <th>Turn</th><th>#</th><th>Time</th><th>Type</th><th>Name</th>
+                <th>Indirect</th><th>Source</th><th>Model</th><th>ms</th>
+                <th>In Tok</th><th>Out Tok</th><th>Total</th><th>Status</th>
+                <th>Input</th><th>Output</th>
+              </tr>
+            </thead>
+            <tbody id="edges-tbody">${buildEdgeRows(edges)}</tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- Violations & Assertion Failures -->
+      <div class="section">
+        <h3>Violations &amp; Assertion Failures</h3>
+        <div class="scroll-x">
+          <table>
+            <thead><tr><th>Kind</th><th>Name</th><th>Turn</th><th>#</th><th>Status</th><th>Details</th></tr></thead>
+            <tbody>${buildViolationRows(violations)}</tbody>
+          </table>
+        </div>
+      </div>
+
+    `;
+
+    // Render diagram after DOM is ready
+    renderDiagram(steps);
+  })();
+  </script>
+</body>
+</html>
