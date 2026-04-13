@@ -51,9 +51,8 @@ no custom wrappers
 ---
 ## 🧠 Why not just tracing or evals?
 
-- Most tools show what happened.
+- Most tools show what happened.aMaze-Test verifies:
 
-- aMaze-Test verifies:
 - Did the agent behave the way it was supposed to?
 - Prevent tool misuse
 - Lock execution paths
@@ -63,14 +62,14 @@ no custom wrappers
 
 ---
 ## 🧩 Core concepts
-Control-plane policy
+Control-plane policy :
 - Define limits and boundaries:
 - allowed tools
 - max LLM/tool calls
 - token budgets
 - Graph policy
 
-## Define exact execution flow:
+## 🧩 Define exact execution flow:
 - agent → llm → tool → finish
 - Mocks & assertions
 - mock LLM or tool responses
