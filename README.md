@@ -1,8 +1,75 @@
-# aMazeTest
+# aMaze-Test
 
-**Behavioral testing framework for LLM agents.**
+**Behavioral testing for AI agents.**
 
-aMazeTest instruments your agent's execution to enforce policies and audit behavior — without modifying your agent code. It intercepts LLM calls and tool calls, validates them against a declared policy, applies mocks for deterministic testing, and produces structured audit reports.
+Define how your agent is allowed to behave, run it unchanged, and get a **policy-aware audit report** with execution traces, mocks, assertions, and pass/fail results.
+
+---
+
+> ⚠️ Current scope:
+> - Supports **LangChain / LangGraph agents**
+> - Each run evaluates a **single isolated agent interaction** (one run = one test case)
+
+---
+
+## ⚡ 30-second example
+
+Run your existing agent under a policy:
+
+```bash
+export AGENT_PROMPT="Search PDFs for data governance frameworks"
+
+PYTHONPATH=src python -m amaze.amaze_runner \
+  examples/agents/one_conversation_agent.py \
+  examples/policies/policy.json
+```
+That’s it.
+
+no changes to your agent code
+no special test harness
+no custom wrappers
+
+📊 What you get
+<p align="center"> <img src="docs/assets/report-overview.png" alt="Policy-aware run report" width="900"> </p> <p align="center"> <img src="docs/assets/report-sequence.png" alt="Execution flow and tool sequence" width="900"> </p>
+✔ Full execution trace (agent → LLM → tools)
+✔ Policy validation (allowed tools, call limits, execution graph)
+✔ Token usage and counters
+✔ Mocked vs real calls clearly marked
+✔ Assertion failures with exact context
+
+
+---
+🧠 Why not just tracing or evals?
+
+Most tools show what happened.
+
+aMaze-Test verifies:
+
+Did the agent behave the way it was supposed to?
+
+Prevent tool misuse
+Lock execution paths
+Enforce token budgets
+Test deterministic scenarios with mocks
+Catch regressions automatically
+---
+🧩 Core concepts
+Control-plane policy
+
+Define limits and boundaries:
+
+allowed tools
+max LLM/tool calls
+token budgets
+Graph policy
+
+Define exact execution flow:
+
+agent → llm → tool → finish
+Mocks & assertions
+mock LLM or tool responses
+assert inputs/outputs
+turn agent runs into deterministic tests
 
 ---
 
